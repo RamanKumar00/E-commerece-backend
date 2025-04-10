@@ -6,7 +6,7 @@ import cors from "cors";
 import fileUpload from "express-fileupload";
 import { errorMiddleware } from "./middlewares/error.js";
 import userRouter from "./routes/userRouter.js"
-
+import productRouter from "./routes/productRouter.js"
 const app = express();
 config({ path: "./config/config.env" });
 
@@ -31,6 +31,7 @@ app.use(
 
 //routes
 app.use("/api/v1/user", userRouter);
+app.use("/api/v1/product", productRouter);
 
 dbConnection();
 
