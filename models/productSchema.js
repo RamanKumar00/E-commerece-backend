@@ -8,10 +8,10 @@ const productSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  // image: {
-  //   type: String,
-  //   required: true,
-  // },
+  image: {
+    public_id: String,
+    url: String,
+  },
   description: {
     type: String,
     required: true,
@@ -24,9 +24,14 @@ const productSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  category: {
+  subCategory: {
     type: String,
     required: true,
+  },
+  parentCategory: {
+    type: String,
+    required: true,
+    enum: ["Personal Care Products", "Food & Beverages", "Home Care Products", "Baby Care Products", "Health Care Products"],
   },
 });
 
