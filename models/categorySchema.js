@@ -1,4 +1,4 @@
-import mongoose, { mongo } from "mongoose";
+import mongoose from "mongoose";
 
 const categorySchema = new mongoose.Schema({
   categoryName: {
@@ -9,6 +9,17 @@ const categorySchema = new mongoose.Schema({
     public_id: String,
     url: String,
   },
+  subCategories: [
+    {
+      subCategoryName: {
+        type: String,
+      },
+      subCategoryImage: {
+        public_id: String,
+        url: String,
+      },
+    },
+  ],
 });
 
 export const Category = mongoose.model("Category", categorySchema);

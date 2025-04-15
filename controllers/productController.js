@@ -5,17 +5,66 @@ import { Category } from "../models/categorySchema.js";
 import { Product } from "../models/productSchema.js";
 import cloudinary from "cloudinary";
 
+//Product......................................................................................
 export const newProduct = catchAsyncErrors(async (req, res, next) => {
-  const { productName, description, stock, price, category } = req.body;
-  if (!productName || !description || !stock || !price || !category) {
-    return next(new ErrorHandler("Please fill all fields!", 400));
+  if (!req.files || Object.keys(req.files).length === 0) {
+    return next(new ErrorHandler("Category Image Required!", 400));
   }
-  const product = await Product.create({
+  const { image } = req.files;
+
+  const {
     productName,
     description,
     stock,
     price,
-    category,
+    subCategory,
+    parentCategory,
+  } = req.body;
+
+  const allowedFormats = ["image/png", "image/jpeg", "image/webp"];
+  if (
+    !image.mimetype ||
+    !allowedFormats.includes(image.mimetype)
+  ) {
+    return next(new ErrorHandler("File format not supported!", 400));
+  }
+
+  if (
+    !productName ||
+    !image ||
+    !description ||
+    !stock ||
+    !price ||
+    !subCategory ||
+    !parentCategory
+  ) {
+    return next(new ErrorHandler("Please fill all fields!", 400));
+  }
+  const cloudinaryResponse = await cloudinary.uploader.upload(
+    image.tempFilePath
+  );
+  if (!cloudinaryResponse || cloudinaryResponse.error) {
+    console.error(
+      "Cloudinary Error: ",
+      cloudinaryResponse.error || "Unknown Cloudinary Error"
+    );
+    return next(
+      new ErrorHandler("Failed To Upload Product Image To Cloudinary", 500)
+    );
+  }
+
+
+  const product = await Product.create({
+    productName,
+    image: {
+      public_id: cloudinaryResponse.public_id,
+      url: cloudinaryResponse.secure_url,
+    },
+    description,
+    stock,
+    price,
+    subCategory,
+    parentCategory,
   });
 
   res.status(200).json({
@@ -36,89 +85,7 @@ export const getProduct = catchAsyncErrors(async (req, res, next) => {
   });
 });
 
-// Categories
-export const addNewCategory = catchAsyncErrors(async (req, res, next) => {
-  if (!req.files || Object.keys(req.files).length === 0) {
-    return next(new ErrorHandler("Category Image Required!", 400));
-  }
-  const { categoryImage } = req.files;
-  const { categoryName } = req.body;
-  const allowedFormats = ["image/png", "image/jpeg", "image/webp"];
-  if (
-    !categoryImage.mimetype ||
-    !allowedFormats.includes(categoryImage.mimetype)
-  ) {
-    return next(new ErrorHandler("File format not supported!", 400));
-  }
-
-  if (!categoryImage || !categoryName) {
-    return next(new ErrorHandler("Please provide full details!", 400));
-  }
-  const alreadyCategory = await Category.findOne({ categoryName });
-  if (alreadyCategory) {
-    return next(
-      new ErrorHandler(`${alreadyCategory.categoryName} already exists!`, 400)
-    );
-  }
-
-  const cloudinaryResponse = await cloudinary.uploader.upload(
-    categoryImage.tempFilePath
-  );
-  if (!cloudinaryResponse || cloudinaryResponse.error) {
-    console.error(
-      "Cloudinary Error: ",
-      cloudinaryResponse.error || "Unknown Cloudinary Error"
-    );
-    return next(
-      new ErrorHandler("Failed To Upload Doctor Avatar To Cloudinary", 500)
-    );
-  }
-
-  const category = await Category.create({
-    categoryName,
-    categoryImage: {
-      public_id: cloudinaryResponse.public_id,
-      url: cloudinaryResponse.secure_url,
-    },
-  });
-  res.status(200).json({
-    success: true,
-    message: `${category.categoryName} category Created Successfully`,
-  });
-});
-
-export const removeACategory = catchAsyncErrors(async (req, res, next) => {
-  const { publicId, categoryName } = req.body;
-
-  if (!publicId || !categoryName) {
-    return next(new ErrorHandler("Please fill all fields", 400));
-  }
-
-  const result = await cloudinary.uploader.destroy(publicId);
-
-  if (result.result !== "ok") {
-    return next(
-      new ErrorHandler(
-        `Failed to delete image from Cloudinary. Error:${result.result}`,
-        500
-      )
-    );
-  }
-
-  const categoryDoc = await Category.findOneAndDelete({
-    categoryName: categoryName,
-    "categoryImage.public_id": publicId,
-  });
-  if (!categoryDoc) {
-    return next(new ErrorHandler("Failed to delete Category", 500));
-  }
-  res.status(200).json({
-    success: true,
-    message: "Category deleted successfully",
-  });
-});
-
-// Banner
+// Banner......................................................................................
 export const addBannerImages = catchAsyncErrors(async (req, res, next) => {
   if (!req.files || Object.keys(req.files).length === 0) {
     return next(new ErrorHandler("Images are Required!", 400));
@@ -179,31 +146,61 @@ export const removeABannerImage = catchAsyncErrors(async (req, res, next) => {
   });
 });
 
-export const getCategories = catchAsyncErrors(async (req, res, next) => {
-  const categories = await Category.find();
+// HomeScreen Data..............................................................................
+export const searchProduct = catchAsyncErrors(async (req, res, next) => {
+  const { query } = req.query;
+
+  if (!query || query.trim() === "") {
+    return res.status(400).json({
+      success: false,
+      message: "Query parameter is required for searching.",
+    });
+  }
+
+  const regex = new RegExp(query, "i"); // case-insensitive regex
+
+  const products = await Product.find({
+    $or: [
+      { productName: regex },
+      { subCategory: regex },
+      { parentCategory: regex },
+    ],
+  });
 
   res.status(200).json({
     success: true,
-    categories,
+    homeScreenData: {
+      allProducts: products,
+    },
   });
 });
 
-// HomeScreen Data
 export const getHomeScreenData = catchAsyncErrors(async (req, res, next) => {
   const bannerImages = await Banner.find();
   const categories = await Category.find();
-  const allProducts = await Product.find();
   res.status(200).json({
     success: true,
     homeScreenData: {
       bannerImages,
       categories,
-      allProducts,
     },
   });
 });
 
-// homescreen contains:
-// 1. bannerImages
-// 2. categories
-// 3. all products
+export const getPaginatedProducts = catchAsyncErrors(async (req, res, next) => {
+  const page = parseInt(req.query.page) || 1; // Default to page 1
+  const limit = 20;
+  const skip = (page - 1) * limit;
+
+  const totalProducts = await Product.countDocuments();
+  const products = await Product.find().skip(skip).limit(limit);
+
+  res.status(200).json({
+    success: true,
+    currentPage: page,
+    totalPages: Math.ceil(totalProducts / limit),
+    totalProducts,
+    productsPerPage: limit,
+    products,
+  });
+});
