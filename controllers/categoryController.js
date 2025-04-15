@@ -37,7 +37,7 @@ export const addNewCategory = catchAsyncErrors(async (req, res, next) => {
       cloudinaryResponse.error || "Unknown Cloudinary Error"
     );
     return next(
-      new ErrorHandler("Failed To Upload Doctor Avatar To Cloudinary", 500)
+      new ErrorHandler("Failed To Upload Category Image To Cloudinary", 500)
     );
   }
 

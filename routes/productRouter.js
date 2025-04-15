@@ -1,6 +1,6 @@
 import express from "express";
 
-import { addBannerImages, getHomeScreenData, getProduct, newProduct, removeABannerImage } from "../controllers/productController.js";
+import { addBannerImages, getHomeScreenData, getPaginatedProducts, getProduct, newProduct, removeABannerImage, searchProduct } from "../controllers/productController.js";
 import { isAdminAuthenticated, isAuthenticated } from "../middlewares/auth.js";
 const app = express.Router();
 
@@ -21,5 +21,11 @@ app.delete("/banner-image", isAdminAuthenticated, removeABannerImage);
 
 // route - /api/product/homescreendata
 app.get("/homescreendata", isAuthenticated, getHomeScreenData);
+
+// route - /api/product/:query(eg. shampoo, dove etc.)
+app.get("/search", isAuthenticated, searchProduct);
+
+// route - /api/product?page=1
+app.get("/paginated", isAuthenticated, getPaginatedProducts);
 
 export default app;

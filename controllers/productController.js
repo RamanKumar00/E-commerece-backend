@@ -5,18 +5,66 @@ import { Category } from "../models/categorySchema.js";
 import { Product } from "../models/productSchema.js";
 import cloudinary from "cloudinary";
 
-//Product
+//Product......................................................................................
 export const newProduct = catchAsyncErrors(async (req, res, next) => {
-  const { productName, description, stock, price, category } = req.body;
-  if (!productName || !description || !stock || !price || !category) {
-    return next(new ErrorHandler("Please fill all fields!", 400));
+  if (!req.files || Object.keys(req.files).length === 0) {
+    return next(new ErrorHandler("Category Image Required!", 400));
   }
-  const product = await Product.create({
+  const { image } = req.files;
+
+  const {
     productName,
     description,
     stock,
     price,
-    category,
+    subCategory,
+    parentCategory,
+  } = req.body;
+
+  const allowedFormats = ["image/png", "image/jpeg", "image/webp"];
+  if (
+    !image.mimetype ||
+    !allowedFormats.includes(image.mimetype)
+  ) {
+    return next(new ErrorHandler("File format not supported!", 400));
+  }
+
+  if (
+    !productName ||
+    !image ||
+    !description ||
+    !stock ||
+    !price ||
+    !subCategory ||
+    !parentCategory
+  ) {
+    return next(new ErrorHandler("Please fill all fields!", 400));
+  }
+  const cloudinaryResponse = await cloudinary.uploader.upload(
+    image.tempFilePath
+  );
+  if (!cloudinaryResponse || cloudinaryResponse.error) {
+    console.error(
+      "Cloudinary Error: ",
+      cloudinaryResponse.error || "Unknown Cloudinary Error"
+    );
+    return next(
+      new ErrorHandler("Failed To Upload Product Image To Cloudinary", 500)
+    );
+  }
+
+
+  const product = await Product.create({
+    productName,
+    image: {
+      public_id: cloudinaryResponse.public_id,
+      url: cloudinaryResponse.secure_url,
+    },
+    description,
+    stock,
+    price,
+    subCategory,
+    parentCategory,
   });
 
   res.status(200).json({
@@ -37,7 +85,7 @@ export const getProduct = catchAsyncErrors(async (req, res, next) => {
   });
 });
 
-// Banner
+// Banner......................................................................................
 export const addBannerImages = catchAsyncErrors(async (req, res, next) => {
   if (!req.files || Object.keys(req.files).length === 0) {
     return next(new ErrorHandler("Images are Required!", 400));
@@ -98,22 +146,61 @@ export const removeABannerImage = catchAsyncErrors(async (req, res, next) => {
   });
 });
 
-// HomeScreen Data
+// HomeScreen Data..............................................................................
+export const searchProduct = catchAsyncErrors(async (req, res, next) => {
+  const { query } = req.query;
+
+  if (!query || query.trim() === "") {
+    return res.status(400).json({
+      success: false,
+      message: "Query parameter is required for searching.",
+    });
+  }
+
+  const regex = new RegExp(query, "i"); // case-insensitive regex
+
+  const products = await Product.find({
+    $or: [
+      { productName: regex },
+      { subCategory: regex },
+      { parentCategory: regex },
+    ],
+  });
+
+  res.status(200).json({
+    success: true,
+    homeScreenData: {
+      allProducts: products,
+    },
+  });
+});
+
 export const getHomeScreenData = catchAsyncErrors(async (req, res, next) => {
   const bannerImages = await Banner.find();
   const categories = await Category.find();
-  const allProducts = await Product.find();
   res.status(200).json({
     success: true,
     homeScreenData: {
       bannerImages,
       categories,
-      allProducts,
     },
   });
 });
 
-// homescreen contains:
-// 1. bannerImages
-// 2. categories
-// 3. all products
+export const getPaginatedProducts = catchAsyncErrors(async (req, res, next) => {
+  const page = parseInt(req.query.page) || 1; // Default to page 1
+  const limit = 20;
+  const skip = (page - 1) * limit;
+
+  const totalProducts = await Product.countDocuments();
+  const products = await Product.find().skip(skip).limit(limit);
+
+  res.status(200).json({
+    success: true,
+    currentPage: page,
+    totalPages: Math.ceil(totalProducts / limit),
+    totalProducts,
+    productsPerPage: limit,
+    products,
+  });
+});
