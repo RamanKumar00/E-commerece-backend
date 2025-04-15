@@ -1,7 +1,4 @@
-import mongoose, { mongo } from "mongoose";
-import validator from "validator";
-import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 const productSchema = new mongoose.Schema({
   productName: {
@@ -17,7 +14,7 @@ const productSchema = new mongoose.Schema({
     required: true,
   },
   stock: {
-    type: String,
+    type: Number,
     required: true,
   },
   price: {
@@ -31,9 +28,30 @@ const productSchema = new mongoose.Schema({
   parentCategory: {
     type: String,
     required: true,
-    enum: ["Personal Care Products", "Food & Beverages", "Home Care Products", "Baby Care Products", "Health Care Products"],
+    enum: [
+      "Personal Care Products",
+      "Food & Beverages",
+      "Home Care Products",
+      "Baby Care Products",
+      "Health Care Products",
+    ],
   },
+  rating_reviews: [
+    {
+      rating: {
+        type: Number,
+        required: true,
+        enum: [1, 2, 3, 4, 5],
+      },
+      review: { type: String },
+      images: [
+        {
+          public_id: String,
+          url: String,
+        },
+      ],
+    },
+  ],
 });
 
- 
 export const Product = mongoose.model("Product", productSchema);

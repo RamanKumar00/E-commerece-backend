@@ -53,6 +53,39 @@ const userSchema = new mongoose.Schema({
   loginOtpExpiry: { type: Date },
   passwordRecoveryOtp: { type: String },
   passwordRecoveryOtpExpiry: { type: Date },
+
+  //user's cart & orders
+  cartProducts: [
+    {
+      productId: {
+        type: String,
+      },
+      quantity:{
+        type:Number
+      },
+    },
+  ],
+
+  orders: [
+    {
+      productId: {
+        type: String,
+      },
+      quantity: {
+        type: String,
+      },
+      status: {
+        type: String,
+        enum: ["Placed", "Shipped", "Delivered"],
+      },
+      cancelledByUser: {
+        type: Boolean,
+      },
+      cancelledByAdmin: {
+        type: Boolean,
+      },
+    },
+  ],
 });
 
 userSchema.pre("save", async function (next) {

@@ -5,6 +5,7 @@ import { Category } from "../models/categorySchema.js";
 import { Product } from "../models/productSchema.js";
 import cloudinary from "cloudinary";
 
+//Product
 export const newProduct = catchAsyncErrors(async (req, res, next) => {
   const { productName, description, stock, price, category } = req.body;
   if (!productName || !description || !stock || !price || !category) {
@@ -33,88 +34,6 @@ export const getProduct = catchAsyncErrors(async (req, res, next) => {
   res.status(200).json({
     success: true,
     product,
-  });
-});
-
-// Categories
-export const addNewCategory = catchAsyncErrors(async (req, res, next) => {
-  if (!req.files || Object.keys(req.files).length === 0) {
-    return next(new ErrorHandler("Category Image Required!", 400));
-  }
-  const { categoryImage } = req.files;
-  const { categoryName } = req.body;
-  const allowedFormats = ["image/png", "image/jpeg", "image/webp"];
-  if (
-    !categoryImage.mimetype ||
-    !allowedFormats.includes(categoryImage.mimetype)
-  ) {
-    return next(new ErrorHandler("File format not supported!", 400));
-  }
-
-  if (!categoryImage || !categoryName) {
-    return next(new ErrorHandler("Please provide full details!", 400));
-  }
-  const alreadyCategory = await Category.findOne({ categoryName });
-  if (alreadyCategory) {
-    return next(
-      new ErrorHandler(`${alreadyCategory.categoryName} already exists!`, 400)
-    );
-  }
-
-  const cloudinaryResponse = await cloudinary.uploader.upload(
-    categoryImage.tempFilePath
-  );
-  if (!cloudinaryResponse || cloudinaryResponse.error) {
-    console.error(
-      "Cloudinary Error: ",
-      cloudinaryResponse.error || "Unknown Cloudinary Error"
-    );
-    return next(
-      new ErrorHandler("Failed To Upload Doctor Avatar To Cloudinary", 500)
-    );
-  }
-
-  const category = await Category.create({
-    categoryName,
-    categoryImage: {
-      public_id: cloudinaryResponse.public_id,
-      url: cloudinaryResponse.secure_url,
-    },
-  });
-  res.status(200).json({
-    success: true,
-    message: `${category.categoryName} category Created Successfully`,
-  });
-});
-
-export const removeACategory = catchAsyncErrors(async (req, res, next) => {
-  const { publicId, categoryName } = req.body;
-
-  if (!publicId || !categoryName) {
-    return next(new ErrorHandler("Please fill all fields", 400));
-  }
-
-  const result = await cloudinary.uploader.destroy(publicId);
-
-  if (result.result !== "ok") {
-    return next(
-      new ErrorHandler(
-        `Failed to delete image from Cloudinary. Error:${result.result}`,
-        500
-      )
-    );
-  }
-
-  const categoryDoc = await Category.findOneAndDelete({
-    categoryName: categoryName,
-    "categoryImage.public_id": publicId,
-  });
-  if (!categoryDoc) {
-    return next(new ErrorHandler("Failed to delete Category", 500));
-  }
-  res.status(200).json({
-    success: true,
-    message: "Category deleted successfully",
   });
 });
 
@@ -176,15 +95,6 @@ export const removeABannerImage = catchAsyncErrors(async (req, res, next) => {
   res.status(200).json({
     success: true,
     message: "Image deleted successfully",
-  });
-});
-
-export const getCategories = catchAsyncErrors(async (req, res, next) => {
-  const categories = await Category.find();
-
-  res.status(200).json({
-    success: true,
-    categories,
   });
 });
 
