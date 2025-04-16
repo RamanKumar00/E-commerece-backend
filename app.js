@@ -11,13 +11,8 @@ import categoryRouter from "./routes/categoryRouter.js"
 const app = express();
 config({ path: "./config/config.env" });
 
-// app.use(
-//   cors({
-//     origin: [process.env.FRONTEND_URL_ONE],
-//     method: ["GET", "POST", "DELETE", "PUT"],
-//     credentials: true,
-//   })
-// );
+
+app.use(cors());
 
 app.use(cookieParser());
 app.use(express.json());
