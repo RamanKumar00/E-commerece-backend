@@ -1,7 +1,6 @@
 import express from "express";
 
-import { addBannerImages, getHomeScreenData, getPaginatedProducts, getProduct, newProduct, removeABannerImage, getSingleProduct,
-  updateProduct,
+import { addBannerImages, getHomeScreenData, getPaginatedProducts, getProduct, newProduct, removeABannerImage, searchProduct,
   deleteProduct,
   getSuggestedImages,
 } from "../controllers/productController.js";
