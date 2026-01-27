@@ -3,8 +3,6 @@ import ErrorHandler from "../middlewares/error.js";
 import { Banner } from "../models/bannerSchema.js";
 import { Category } from "../models/categorySchema.js";
 import { Product } from "../models/productSchema.js";
-import { Category } from "../models/categorySchema.js";
-import { Product } from "../models/productSchema.js";
 import { fetchPexelsImages } from "../utils/pexels.js";
 import cloudinary from "cloudinary";
 
