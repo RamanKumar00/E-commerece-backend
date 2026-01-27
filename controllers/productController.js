@@ -8,9 +8,11 @@ import cloudinary from "cloudinary";
 //Product......................................................................................
 export const newProduct = catchAsyncErrors(async (req, res, next) => {
   if (!req.files || Object.keys(req.files).length === 0) {
-    return next(new ErrorHandler("Category Image Required!", 400));
+    return next(new ErrorHandler("Product Image Required!", 400));
   }
-  const { image } = req.files;
+  
+  // Support 'doc' (from frontend) or 'image'
+  const image = req.files.image || req.files.doc;
 
   const {
     productName,
@@ -19,6 +21,7 @@ export const newProduct = catchAsyncErrors(async (req, res, next) => {
     price,
     subCategory,
     parentCategory,
+    category, // From frontend
   } = req.body;
 
   const allowedFormats = ["image/png", "image/jpeg", "image/webp"];
@@ -29,20 +32,25 @@ export const newProduct = catchAsyncErrors(async (req, res, next) => {
     return next(new ErrorHandler("File format not supported!", 400));
   }
 
+  // Flexible category handling
+  const finalSubCategory = subCategory || category;
+  const finalParentCategory = parentCategory || category;
+
   if (
     !productName ||
     !image ||
     !description ||
     !stock ||
     !price ||
-    !subCategory ||
-    !parentCategory
+    (!finalSubCategory && !finalParentCategory)
   ) {
     return next(new ErrorHandler("Please fill all fields!", 400));
   }
+  
   const cloudinaryResponse = await cloudinary.uploader.upload(
     image.tempFilePath
   );
+  
   if (!cloudinaryResponse || cloudinaryResponse.error) {
     console.error(
       "Cloudinary Error: ",
@@ -53,7 +61,6 @@ export const newProduct = catchAsyncErrors(async (req, res, next) => {
     );
   }
 
-
   const product = await Product.create({
     productName,
     image: {
@@ -63,8 +70,8 @@ export const newProduct = catchAsyncErrors(async (req, res, next) => {
     description,
     stock,
     price,
-    subCategory,
-    parentCategory,
+    subCategory: finalSubCategory,
+    parentCategory: finalParentCategory,
   });
 
   res.status(200).json({
@@ -202,5 +209,25 @@ export const getPaginatedProducts = catchAsyncErrors(async (req, res, next) => {
     totalProducts,
     productsPerPage: limit,
     products,
+  });
+});
+
+export const deleteProduct = catchAsyncErrors(async (req, res, next) => {
+  const { id } = req.params;
+  const product = await Product.findById(id);
+
+  if (!product) {
+    return next(new ErrorHandler("Product not found", 404));
+  }
+
+  if (product.image && product.image.public_id) {
+    await cloudinary.uploader.destroy(product.image.public_id);
+  }
+
+  await product.deleteOne();
+
+  res.status(200).json({
+    success: true,
+    message: "Product Deleted Successfully",
   });
 });

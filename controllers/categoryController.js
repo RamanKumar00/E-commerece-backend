@@ -8,19 +8,24 @@ export const addNewCategory = catchAsyncErrors(async (req, res, next) => {
   if (!req.files || Object.keys(req.files).length === 0) {
     return next(new ErrorHandler("Category Image Required!", 400));
   }
-  const { categoryImage } = req.files;
-  const { categoryName } = req.body;
+  
+  // Robust field handling
+  const categoryImage = req.files.categoryImage || req.files.image || req.files.doc;
+  const categoryName = req.body.categoryName || req.body.category;
+
   const allowedFormats = ["image/png", "image/jpeg", "image/webp"];
   if (
+    !categoryImage ||
     !categoryImage.mimetype ||
     !allowedFormats.includes(categoryImage.mimetype)
   ) {
     return next(new ErrorHandler("File format not supported!", 400));
   }
 
-  if (!categoryImage || !categoryName) {
-    return next(new ErrorHandler("Please provide full details!", 400));
+  if (!categoryName) {
+    return next(new ErrorHandler("Please provide category name!", 400));
   }
+
   const alreadyCategory = await Category.findOne({ categoryName });
   if (alreadyCategory) {
     return next(

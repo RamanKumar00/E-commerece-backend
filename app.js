@@ -8,6 +8,7 @@ import { errorMiddleware } from "./middlewares/error.js";
 import userRouter from "./routes/userRouter.js";
 import categoryRouter from "./routes/categoryRouter.js";
 import productRouter from "./routes/productRouter.js";
+import orderRouter from "./routes/orderRouter.js";
 
 const app = express();
 config({ path: "./config/config.env" }); // This will automatically look for .env file
@@ -36,8 +37,10 @@ app.use(
 app.use("/api/v1/user", userRouter);
 app.use("/api/v1/category", categoryRouter);
 app.use("/api/v1/product", productRouter);
+app.use("/api/v1/order", orderRouter);
 
 dbConnection();
 
 app.use(errorMiddleware);
 export default app;
+
