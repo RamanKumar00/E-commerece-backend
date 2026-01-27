@@ -2,6 +2,7 @@ import { catchAsyncErrors } from "../middlewares/catchAsyncErrors.js";
 import { User } from "../models/userSchema.js";
 import { Product } from "../models/productSchema.js";
 import ErrorHandler from "../middlewares/error.js";
+import { sendEmail } from "../utils/sendEmail.js";
 
 // ==================== CART CONTROLLERS ====================
 
@@ -157,12 +158,24 @@ export const placeOrder = catchAsyncErrors(async (req, res, next) => {
 
   // 2. Decorate items and Deduct Stock
   const orderItems = [];
+  const lowStockThreshold = 5;
+
   for (const item of products) {
     const product = await Product.findById(item.productId);
     
     // Deduct stock
     product.stock -= item.quantity;
     await product.save();
+    
+    // Low Stock Alert
+    if (product.stock < lowStockThreshold) {
+       // Send async email (don't await to avoid delay)
+       sendEmail(
+         process.env.SMTP_EMAIL, 
+         "⚠️ Low Stock Alert - Aman Enterprises",
+         `Product "${product.productName}" is running low on stock. Current Quantity: ${product.stock}`
+       ).catch(err => console.error("Alert Email Failed:", err));
+    }
     
     orderItems.push({
       productId: item.productId,
@@ -180,6 +193,13 @@ export const placeOrder = catchAsyncErrors(async (req, res, next) => {
   user.cartProducts = [];
   
   await user.save();
+  
+  // Order Confirmation Email
+  sendEmail(
+      user.email,
+      "Order Placed - Aman Enterprises",
+      `Your order for ${orderItems.length} items has been placed successfully!`
+  ).catch(console.error);
 
   res.status(200).json({
     success: true,
@@ -330,6 +350,15 @@ export const updateOrderStatus = catchAsyncErrors(async (req, res, next) => {
   order.updatedAt = new Date();
   
   await user.save();
+
+  // Order Status Email
+  if (["Out for Delivery", "Delivered"].includes(status)) {
+     sendEmail(
+       user.email,
+       `Order Update: ${status}`,
+       `Your order ${order._id} is now ${status}. Thank you for shopping with Aman Enterprises!`
+     ).catch(console.error);
+  }
 
   res.status(200).json({
     success: true,

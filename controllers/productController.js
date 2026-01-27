@@ -3,17 +3,28 @@ import ErrorHandler from "../middlewares/error.js";
 import { Banner } from "../models/bannerSchema.js";
 import { Category } from "../models/categorySchema.js";
 import { Product } from "../models/productSchema.js";
+import { Category } from "../models/categorySchema.js";
+import { Product } from "../models/productSchema.js";
+import { fetchPexelsImages } from "../utils/pexels.js";
 import cloudinary from "cloudinary";
 
 //Product......................................................................................
 export const newProduct = catchAsyncErrors(async (req, res, next) => {
-  if (!req.files || Object.keys(req.files).length === 0) {
-    return next(new ErrorHandler("Product Image Required!", 400));
+  // 1. Handle File Upload OR Pexels URL
+  let image = null;
+  let isPexels = false;
+
+  if (req.files && (req.files.image || req.files.doc)) {
+    image = req.files.image || req.files.doc;
+  } else if (req.body.imageUrl) {
+    image = req.body.imageUrl;
+    isPexels = true;
+  }
+
+  if (!image) {
+    return next(new ErrorHandler("Product Image Required (File or URL)!", 400));
   }
   
-  // Support 'doc' (from frontend) or 'image'
-  const image = req.files.image || req.files.doc;
-
   const {
     productName,
     description,
@@ -21,16 +32,8 @@ export const newProduct = catchAsyncErrors(async (req, res, next) => {
     price,
     subCategory,
     parentCategory,
-    category, // From frontend
+    category, 
   } = req.body;
-
-  const allowedFormats = ["image/png", "image/jpeg", "image/webp"];
-  if (
-    !image.mimetype ||
-    !allowedFormats.includes(image.mimetype)
-  ) {
-    return next(new ErrorHandler("File format not supported!", 400));
-  }
 
   // Flexible category handling
   const finalSubCategory = subCategory || category;
@@ -38,7 +41,6 @@ export const newProduct = catchAsyncErrors(async (req, res, next) => {
 
   if (
     !productName ||
-    !image ||
     !description ||
     !stock ||
     !price ||
@@ -47,26 +49,38 @@ export const newProduct = catchAsyncErrors(async (req, res, next) => {
     return next(new ErrorHandler("Please fill all fields!", 400));
   }
   
-  const cloudinaryResponse = await cloudinary.uploader.upload(
-    image.tempFilePath
-  );
-  
-  if (!cloudinaryResponse || cloudinaryResponse.error) {
-    console.error(
-      "Cloudinary Error: ",
-      cloudinaryResponse.error || "Unknown Cloudinary Error"
-    );
-    return next(
-      new ErrorHandler("Failed To Upload Product Image To Cloudinary", 500)
-    );
+  let imageData = {};
+
+  if (isPexels) {
+      // Direct URL
+      imageData = {
+        public_id: "pexels_image",
+        url: image // It's a string URL
+      };
+  } else {
+     // File Upload
+      const allowedFormats = ["image/png", "image/jpeg", "image/webp"];
+      if (!image.mimetype || !allowedFormats.includes(image.mimetype)) {
+        return next(new ErrorHandler("File format not supported!", 400));
+      }
+
+      const cloudinaryResponse = await cloudinary.uploader.upload(
+        image.tempFilePath
+      );
+      
+      if (!cloudinaryResponse || cloudinaryResponse.error) {
+        return next(new ErrorHandler("Failed To Upload Product Image", 500));
+      }
+      
+      imageData = {
+          public_id: cloudinaryResponse.public_id,
+          url: cloudinaryResponse.secure_url,
+      };
   }
 
   const product = await Product.create({
     productName,
-    image: {
-      public_id: cloudinaryResponse.public_id,
-      url: cloudinaryResponse.secure_url,
-    },
+    image: imageData,
     description,
     stock,
     price,
@@ -230,4 +244,17 @@ export const deleteProduct = catchAsyncErrors(async (req, res, next) => {
     success: true,
     message: "Product Deleted Successfully",
   });
+});
+
+export const getSuggestedImages = catchAsyncErrors(async (req, res, next) => {
+    const { query } = req.query;
+    if (!query) return next(new ErrorHandler("Search query required", 400));
+    
+    // Fetch from Pexels
+    const images = await fetchPexelsImages(query, 6);
+    
+    res.status(200).json({
+        success: true,
+        images // Returns array of { url, alt, photographer }
+    });
 });

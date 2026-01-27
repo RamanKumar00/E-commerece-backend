@@ -6,8 +6,8 @@ config({ path: "./config/config.env" });
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: "interstellaraditya@gmail.com",
-    pass: process.env.EMAIL_APP_PASS, // Use App Password from Google
+    user: process.env.SMTP_EMAIL || "aman.enterprises.official@gmail.com",
+    pass: process.env.SMTP_PASSWORD, 
   },
 });
 
@@ -20,7 +20,7 @@ const transporter = nodemailer.createTransport({
 export const sendEmail = async (to, subject, message) => {
     try {
       const mailOptions = {
-        from: "interstellaraditya@gmail.com",
+        from: "ramankr7321@gmail.com",
         to,
         subject,
         text: message,
