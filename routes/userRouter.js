@@ -8,6 +8,7 @@ import {
   createNewPassword,
   sendOTPtoVerifyEmail,
   verifyOtpToVerifyEmail,
+  updateLanguage,
 } from "../controllers/userController.js";
 import { isAuthenticated } from "../middlewares/auth.js";
 const app = express.Router();
@@ -35,5 +36,8 @@ app.post("/verify-otp-generate-password", verifyOtpToGeneratePassword);
 
 // route - /api/create-password
 app.put("/create-password", createNewPassword);
+
+// route - /api/v1/user/language
+app.put("/language", isAuthenticated, updateLanguage);
 
 export default app;

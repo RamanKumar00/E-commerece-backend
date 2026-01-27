@@ -236,3 +236,18 @@ export const createNewPassword = catchAsyncErrors(async (req, res, next) => {
     message: "Password reset successfully!",
   });
 });
+
+export const updateLanguage = catchAsyncErrors(async (req, res, next) => {
+  const { language } = req.body;
+  if (!language) return next(new ErrorHandler("Language code required!", 400));
+  
+  const user = await User.findById(req.user._id);
+  user.language = language;
+  await user.save();
+  
+  res.status(200).json({
+    success: true,
+    message: req.t('success_language_update'),
+    language: user.language
+  });
+});

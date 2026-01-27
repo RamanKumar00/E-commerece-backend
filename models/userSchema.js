@@ -49,6 +49,11 @@ const userSchema = new mongoose.Schema({
     required: true,
     select: false,
   },
+  language: {
+    type: String,
+    default: "en",
+    enum: ["en", "hi"],
+  },
   loginOtp: { type: String },
   loginOtpExpiry: { type: Date },
   passwordRecoveryOtp: { type: String },
