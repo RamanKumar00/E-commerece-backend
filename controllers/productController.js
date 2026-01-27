@@ -8,19 +8,33 @@ import cloudinary from "cloudinary";
 
 //Product......................................................................................
 export const newProduct = catchAsyncErrors(async (req, res, next) => {
-  // 1. Handle File Upload OR Pexels URL
+  // 1. Handle File Upload OR Pexels URL OR Auto-Fetch
   let image = null;
   let isPexels = false;
+  let pexelsId = null;
 
   if (req.files && (req.files.image || req.files.doc)) {
     image = req.files.image || req.files.doc;
   } else if (req.body.imageUrl) {
     image = req.body.imageUrl;
     isPexels = true;
+  } 
+
+  // Auto-Fetch Logic if no image provided
+  if (!image) {
+    const query = `${req.body.productName} ${req.body.subCategory || req.body.category || ''}`;
+    const pexelsImages = await fetchPexelsImages(query, 5);
+    if (pexelsImages && pexelsImages.length > 0) {
+        // Pick the first one (or random)
+        const selected = pexelsImages[0];
+        image = selected.url;
+        pexelsId = selected.id;
+        isPexels = true;
+    }
   }
 
   if (!image) {
-    return next(new ErrorHandler("Product Image Required (File or URL)!", 400));
+    return next(new ErrorHandler("Product Image Required (uploaded, url, or auto-fetch failed)!", 400));
   }
   
   const {
@@ -53,7 +67,7 @@ export const newProduct = catchAsyncErrors(async (req, res, next) => {
       // Direct URL
       imageData = {
         public_id: "pexels_image",
-        url: image // It's a string URL
+        url: image 
       };
   } else {
      // File Upload
@@ -84,6 +98,7 @@ export const newProduct = catchAsyncErrors(async (req, res, next) => {
     price,
     subCategory: finalSubCategory,
     parentCategory: finalParentCategory,
+    pexelsPhotoId: pexelsId,
   });
 
   res.status(200).json({

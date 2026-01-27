@@ -25,6 +25,7 @@ export const fetchPexelsImages = async (query, perPage = 5) => {
     const data = await response.json();
     return data.photos.map(photo => ({
       url: photo.src.medium, // Optimized for mobile/web
+      id: photo.id,
       alt: photo.alt,
       photographer: photo.photographer
     }));

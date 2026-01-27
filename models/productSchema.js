@@ -9,6 +9,7 @@ const productSchema = new mongoose.Schema({
     public_id: String,
     url: String,
   },
+  pexelsPhotoId: { type: Number },
   description: {
     type: String,
     required: true,
