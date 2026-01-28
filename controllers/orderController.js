@@ -39,7 +39,25 @@ export const placeOrder = catchAsyncErrors(async (req, res, next) => {
       return next(new ErrorHandler(`Insufficient stock for ${product.productName}`, 400));
     }
 
-    const price = product.price; // Use current product price
+    const isRetailer = req.user.role === "RetailUser";
+    
+    // B2B Validation
+    if (isRetailer) {
+       if (product.isB2BAvailable === false) {
+          return next(new ErrorHandler(`Product "${product.productName}" is not available for B2B orders.`, 400));
+       }
+       
+       const packSize = product.b2bMinQty || 6;
+       if (item.quantity < packSize) {
+          return next(new ErrorHandler(`Minimum order quantity for "${product.productName}" is ${packSize} units.`, 400));
+       }
+       
+       if (item.quantity % packSize !== 0) {
+          return next(new ErrorHandler(`Quantity for "${product.productName}" must be a multiple of pack size (${packSize}).`, 400));
+       }
+    }
+
+    const price = (isRetailer && product.b2bPrice) ? product.b2bPrice : product.price; // Use B2B price if applicable
     const totalItemPrice = price * item.quantity;
     itemsPrice += totalItemPrice;
 
@@ -119,7 +137,8 @@ export const placeOrder = catchAsyncErrors(async (req, res, next) => {
     deliverySlot: deliverySlot ? {
       date: new Date(deliverySlot.date),
       timeSlot: deliverySlot.timeSlot
-    } : undefined
+    } : undefined,
+    orderType: req.user.role === "RetailUser" ? "B2B" : "B2C"
   });
 
   // 5. Update Stock
@@ -343,8 +362,27 @@ export const addToCart = catchAsyncErrors(async (req, res, next) => {
   if (!productId) return next(new ErrorHandler("Product ID is required!", 400));
   const product = await Product.findById(productId);
   if (!product) return next(new ErrorHandler("Product not found!", 404));
+
   const user = await User.findById(req.user._id);
   const existingItemIndex = user.cartProducts.findIndex((item) => item.productId === productId);
+  
+  // B2B Validation
+  if (user.role === "RetailUser") {
+      if (product.isB2BAvailable === false) {
+           return next(new ErrorHandler("Product not available for B2B", 400));
+      }
+      const minQty = product.b2bMinQty || 6;
+      const currentQty = existingItemIndex >= 0 ? user.cartProducts[existingItemIndex].quantity : 0;
+      const finalQty = currentQty + quantity;
+
+      if (finalQty < minQty) {
+          return next(new ErrorHandler(`B2B: Minimum quantity is ${minQty}`, 400));
+      }
+      if (finalQty % minQty !== 0) {
+          return next(new ErrorHandler(`B2B: Quantity must be a multiple of ${minQty}`, 400));
+      }
+  }
+
   if (existingItemIndex >= 0) {
     user.cartProducts[existingItemIndex].quantity += quantity;
   } else {
@@ -367,9 +405,29 @@ export const updateCartQuantity = catchAsyncErrors(async (req, res, next) => {
   const { productId, quantity } = req.body;
   if (!productId || quantity === undefined) return next(new ErrorHandler("Product ID and quantity are required!", 400));
   if (quantity <= 0) return next(new ErrorHandler("Quantity must be greater than 0!", 400));
+  
   const user = await User.findById(req.user._id);
   const itemIndex = user.cartProducts.findIndex((item) => item.productId === productId);
   if (itemIndex < 0) return next(new ErrorHandler("Product not found in cart!", 404));
+
+  // B2B Validation
+  if (user.role === "RetailUser") {
+      const product = await Product.findById(productId);
+      if (product) { // Only check if product exists (it should)
+          if (product.isB2BAvailable === false) {
+             // Remove item? Or just error? Error for now.
+             return next(new ErrorHandler("Product not available for B2B", 400));
+          }
+          const minQty = product.b2bMinQty || 6;
+          if (quantity < minQty) {
+              return next(new ErrorHandler(`B2B: Minimum quantity is ${minQty}`, 400));
+          }
+          if (quantity % minQty !== 0) {
+              return next(new ErrorHandler(`B2B: Quantity must be a multiple of ${minQty}`, 400));
+          }
+      }
+  }
+
   user.cartProducts[itemIndex].quantity = quantity;
   await user.save();
   res.status(200).json({ success: true, message: "Cart updated", cart: user.cartProducts });

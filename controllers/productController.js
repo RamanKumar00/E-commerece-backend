@@ -45,6 +45,9 @@ export const newProduct = catchAsyncErrors(async (req, res, next) => {
     subCategory,
     parentCategory,
     category, 
+    b2bMinQty,
+    b2bPrice,
+    isB2BAvailable
   } = req.body;
 
   // Flexible category handling
@@ -99,6 +102,9 @@ export const newProduct = catchAsyncErrors(async (req, res, next) => {
     subCategory: finalSubCategory,
     parentCategory: finalParentCategory,
     pexelsPhotoId: pexelsId,
+    b2bMinQty: b2bMinQty || 6,
+    b2bPrice: b2bPrice || price, // Default to regular price if not set
+    isB2BAvailable: isB2BAvailable !== undefined ? isB2BAvailable : true
   });
 
   res.status(200).json({

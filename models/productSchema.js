@@ -37,6 +37,18 @@ const productSchema = new mongoose.Schema({
       "Health Care Products",
     ],
   },
+  // B2B Retailer Fields
+  b2bMinQty: {
+    type: Number,
+    default: 6, 
+  },
+  b2bPrice: {
+    type: Number, 
+  },
+  isB2BAvailable: {
+    type: Boolean,
+    default: true,
+  },
   rating_reviews: [
     {
       rating: {

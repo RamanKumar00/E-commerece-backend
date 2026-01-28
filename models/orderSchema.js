@@ -64,6 +64,11 @@ const orderSchema = new mongoose.Schema({
   ],
   deliveredAt: Date,
   createdAt: { type: Date, default: Date.now },
+  orderType: {
+    type: String,
+    enum: ["B2C", "B2B"],
+    default: "B2C"
+  }
 });
 
 // Pre-save to generate Tracking ID if not exists
