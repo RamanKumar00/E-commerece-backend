@@ -37,4 +37,8 @@ app.delete("/delete/:id", isAuthenticated, deleteProduct);
 // route - /api/v1/product/suggest-images
 app.get("/suggest-images", isAuthenticated, getSuggestedImages);
 
+import { fixProductImages } from "../controllers/productController.js";
+// route - /api/v1/product/fix-images (Admin Maintenance)
+app.get("/fix-images", isAdminAuthenticated, fixProductImages);
+
 export default app;

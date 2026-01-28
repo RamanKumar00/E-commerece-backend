@@ -277,3 +277,54 @@ export const getSuggestedImages = catchAsyncErrors(async (req, res, next) => {
         images // Returns array of { url, alt, photographer }
     });
 });
+
+export const fixProductImages = catchAsyncErrors(async (req, res, next) => {
+  // Find products with missing/empty image URLs
+  const products = await Product.find({
+      $or: [
+          { "image": { $exists: false } },
+          { "image.url": { $exists: false } },
+          { "image.url": "" },
+          { "image.url": null }
+      ]
+  });
+
+  let fixedCount = 0;
+  let errors = 0;
+
+  for (const product of products) {
+      try {
+          // Construct search query
+          const query = `${product.productName} ${product.category || ''}`;
+          
+          // Fetch from Pexels
+          const pexelsImages = await fetchPexelsImages(query, 1);
+          
+          if (pexelsImages && pexelsImages.length > 0) {
+              const selected = pexelsImages[0];
+              
+              product.image = {
+                  public_id: `pexels_${selected.id}`,
+                  url: selected.url
+              };
+              product.pexelsPhotoId = selected.id;
+              
+              await product.save({ validateBeforeSave: false });
+              fixedCount++;
+          }
+      } catch (error) {
+          console.error(`Failed to fix image for ${product.productName}:`, error);
+          errors++;
+      }
+  }
+
+  res.status(200).json({
+      success: true,
+      message: `Image Repair Complete. Found ${products.length} issues. Fixed ${fixedCount}. Failed/NoResult: ${errors}`,
+      stats: {
+          found: products.length,
+          fixed: fixedCount,
+          failed: errors
+      }
+  });
+});
