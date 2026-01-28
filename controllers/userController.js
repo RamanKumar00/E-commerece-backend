@@ -91,6 +91,15 @@ export const userRegister = catchAsyncErrors(async (req, res, next) => {
   ) {
     return next(new ErrorHandler("Please fill full form!", 400));
   }
+  
+  // Security Check: Admin Registration
+  if (role === "Admin") {
+      const secretKey = process.env.ADMIN_SECRET_KEY || "aman_admin_secret_2026"; // Fallback for dev/demo
+      if (req.body.adminSecretKey !== secretKey) {
+          return next(new ErrorHandler("Unauthorized: Invalid Admin Secret Key!", 403));
+      }
+  }
+
   let user = await User.findOne({ phone });
   if (user) {
     return next(new ErrorHandler("User already Registered!", 400));
@@ -103,7 +112,7 @@ export const userRegister = catchAsyncErrors(async (req, res, next) => {
     pincode,
     state,
     city,
-    role,
+    role, // Now safe as we verified secret for Admin
     password,
   });
   generateToken(user, "User registered", 200, res);
