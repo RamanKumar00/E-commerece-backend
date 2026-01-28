@@ -10,10 +10,15 @@ import categoryRouter from "./routes/categoryRouter.js";
 import productRouter from "./routes/productRouter.js";
 import orderRouter from "./routes/orderRouter.js";
 import couponRouter from "./routes/couponRouter.js";
+import wishlistRouter from "./routes/wishlistRouter.js";
+import deliverySlotRouter from "./routes/deliverySlotRouter.js";
+import notificationRouter from "./routes/notificationRouter.js";
+import analyticsRouter from "./routes/analyticsRouter.js";
+import paymentRouter from "./routes/paymentRouter.js";
 import { languageMiddleware } from "./middlewares/language.js";
 
 const app = express();
-config({ path: "./config/config.env" }); // This will automatically look for .env file
+config({ path: "./config/config.env" });
 
 app.use(
   cors({
@@ -35,17 +40,19 @@ app.use(
   })
 );
 
-//routes
 app.use(languageMiddleware);
 app.use("/api/v1/user", userRouter);
 app.use("/api/v1/category", categoryRouter);
 app.use("/api/v1/product", productRouter);
 app.use("/api/v1/coupon", couponRouter);
-// app.use("/api/v1/order", orderRouter); // Kept existing reference if needed, but typically orderRouter is here.
 app.use("/api/v1/order", orderRouter);
+app.use("/api/v1/wishlist", wishlistRouter);
+app.use("/api/v1/delivery-slot", deliverySlotRouter);
+app.use("/api/v1/notification", notificationRouter);
+app.use("/api/v1/analytics", analyticsRouter);
+app.use("/api/v1/payment", paymentRouter);
 
 dbConnection();
 
 app.use(errorMiddleware);
 export default app;
-
