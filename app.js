@@ -9,6 +9,7 @@ import userRouter from "./routes/userRouter.js";
 import categoryRouter from "./routes/categoryRouter.js";
 import productRouter from "./routes/productRouter.js";
 import orderRouter from "./routes/orderRouter.js";
+import couponRouter from "./routes/couponRouter.js";
 import { languageMiddleware } from "./middlewares/language.js";
 
 const app = express();
@@ -39,6 +40,8 @@ app.use(languageMiddleware);
 app.use("/api/v1/user", userRouter);
 app.use("/api/v1/category", categoryRouter);
 app.use("/api/v1/product", productRouter);
+app.use("/api/v1/coupon", couponRouter);
+// app.use("/api/v1/order", orderRouter); // Kept existing reference if needed, but typically orderRouter is here.
 app.use("/api/v1/order", orderRouter);
 
 dbConnection();

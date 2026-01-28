@@ -1,16 +1,327 @@
 import { catchAsyncErrors } from "../middlewares/catchAsyncErrors.js";
 import { User } from "../models/userSchema.js";
 import { Product } from "../models/productSchema.js";
+import { Order } from "../models/orderSchema.js"; // New Schema
+import { Coupon } from "../models/couponSchema.js"; // New Schema
 import ErrorHandler from "../middlewares/error.js";
 import { sendEmail } from "../utils/sendEmail.js";
 
-// ==================== CART CONTROLLERS ====================
+// ==================== ORDER CONTROLLERS ====================
+
+// Place a new order
+export const placeOrder = catchAsyncErrors(async (req, res, next) => {
+  const { 
+    products, 
+    deliveryAddress, 
+    paymentMethod, 
+    couponCode, 
+    deliverySlot 
+  } = req.body;
+
+  if (!products || products.length === 0) {
+    return next(new ErrorHandler("No products to order!", 400));
+  }
+
+  if (!deliveryAddress) {
+    return next(new ErrorHandler("Delivery address is required!", 400));
+  }
+
+  // 1. Validate Stock & Calculate Prices
+  let orderItems = [];
+  let itemsPrice = 0;
+
+  for (const item of products) {
+    const product = await Product.findById(item.productId);
+    if (!product) {
+      return next(new ErrorHandler(`Product not found: ${item.productId}`, 404));
+    }
+    if (product.stock < item.quantity) {
+      return next(new ErrorHandler(`Insufficient stock for ${product.productName}`, 400));
+    }
+
+    const price = product.price; // Use current product price
+    const totalItemPrice = price * item.quantity;
+    itemsPrice += totalItemPrice;
+
+    orderItems.push({
+      product: product._id,
+      name: product.productName,
+      quantity: item.quantity,
+      price: price, // Snapshot price at time of order
+      image: product.image?.url || ""
+    });
+  }
+
+  // 2. Apply Coupon
+  let discountAmount = 0;
+  let couponId = null;
+
+  if (couponCode) {
+    const coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true });
+    
+    if (coupon) {
+      if (new Date() > coupon.expiryDate) {
+        return next(new ErrorHandler("Coupon has expired", 400));
+      }
+      if (coupon.usedCount >= coupon.usageLimit) {
+        return next(new ErrorHandler("Coupon usage limit exceeded", 400));
+      }
+      if (itemsPrice < coupon.minOrderValue) {
+        return next(new ErrorHandler(`Coupon requires minimum order of ₹${coupon.minOrderValue}`, 400));
+      }
+
+      // Calculate Discount
+      if (coupon.discountType === "Flat") {
+        discountAmount = coupon.discountValue;
+      } else {
+        discountAmount = (itemsPrice * coupon.discountValue) / 100;
+        if (coupon.maxDiscountAmount) {
+          discountAmount = Math.min(discountAmount, coupon.maxDiscountAmount);
+        }
+      }
+
+      couponId = coupon._id;
+      
+      // Update Coupon Usage
+      coupon.usedCount += 1;
+      await coupon.save();
+    }
+  }
+
+  // 3. Final Calculations
+  const shippingPrice = itemsPrice > 500 ? 0 : 40; // Example rule: Free shipping over 500
+  const taxPrice = itemsPrice * 0.05; // 5% Tax
+  const totalPrice = itemsPrice + shippingPrice + taxPrice - discountAmount;
+
+  // 4. Create Order
+  const order = await Order.create({
+    user: req.user._id,
+    shippingAddress: {
+      details: deliveryAddress.details || deliveryAddress.address, // Handle different field names
+      city: deliveryAddress.city,
+      state: deliveryAddress.state,
+      pincode: deliveryAddress.pincode,
+      phone: deliveryAddress.phone || req.user.phone
+    },
+    orderItems,
+    paymentInfo: {
+      method: paymentMethod || "COD",
+      status: paymentMethod === "Online" ? "Paid" : "Pending" // Simplified
+    },
+    coupon: couponId,
+    pricing: {
+      itemsPrice,
+      taxPrice,
+      shippingPrice,
+      discountAmount,
+      totalPrice
+    },
+    deliverySlot: deliverySlot ? {
+      date: new Date(deliverySlot.date),
+      timeSlot: deliverySlot.timeSlot
+    } : undefined
+  });
+
+  // 5. Update Stock
+  const lowStockThreshold = 5;
+  for (const item of orderItems) {
+    const product = await Product.findById(item.product);
+    product.stock -= item.quantity;
+    await product.save();
+
+    // Low Stock Alert
+    if (product.stock < lowStockThreshold) {
+       sendEmail(
+         process.env.SMTP_EMAIL, 
+         "⚠️ Low Stock Alert - Aman Enterprises",
+         `Product "${product.productName}" is running low on stock. Current Quantity: ${product.stock}`
+       ).catch(err => console.error("Alert Email Failed:", err));
+    }
+  }
+
+  // 6. Update User's Order History (Ref)
+  const user = await User.findById(req.user._id);
+  user.orders.push(order._id); // Assuming we change User schema to hold refs
+  // Clear cart
+  user.cartProducts = []; 
+  await user.save();
+
+  // 7. Send Confirmation Email
+  sendEmail(
+      user.email,
+      "Order Confirmation - Aman Enterprises",
+      `Your order #${order.trackingId} has been placed! Total: ₹${totalPrice.toFixed(2)}`
+  ).catch(console.error);
+
+  res.status(201).json({
+    success: true,
+    message: "Order placed successfully!",
+    order
+  });
+});
+
+// Get My Orders
+export const getOrders = catchAsyncErrors(async (req, res, next) => {
+  const orders = await Order.find({ user: req.user._id })
+                            .sort({ createdAt: -1 });
+
+  res.status(200).json({
+    success: true,
+    orders,
+  });
+});
+
+// Get Single Order Details
+export const getOrderById = catchAsyncErrors(async (req, res, next) => {
+  const { orderId } = req.params; // Expects Order ID (the Mongo _id) or Tracking ID? Let's use _id for now.
+  
+  // Try to find by _id
+  let order;
+  if (orderId.match(/^[0-9a-fA-F]{24}$/)) {
+    order = await Order.findById(orderId).populate("user", "name email phone");
+  } else {
+    // Try trackingID
+    order = await Order.findOne({ trackingId: orderId }).populate("user", "name email phone");
+  }
+
+  if (!order) {
+    return next(new ErrorHandler("Order not found!", 404));
+  }
+
+  // Ensure user owns this order (unless Admin)
+  if (req.user.role !== "Admin" && order.user._id.toString() !== req.user._id.toString()) {
+    return next(new ErrorHandler("Unauthorized to view this order", 403));
+  }
+
+  res.status(200).json({
+    success: true,
+    order,
+  });
+});
+
+// Get Order Status (Fast Polling)
+export const getOrderStatus = catchAsyncErrors(async (req, res, next) => {
+  const { orderId } = req.query;
+  
+  const order = await Order.findById(orderId);
+  if (!order) {
+    return next(new ErrorHandler("Order not found", 404));
+  }
+
+  res.status(200).json({
+    success: true,
+    trackingId: order.trackingId,
+    status: order.orderStatus,
+    deliverySlot: order.deliverySlot
+  });
+});
+
+// Get All Orders (Admin)
+export const getAllOrdersAdmin = catchAsyncErrors(async (req, res, next) => {
+  const orders = await Order.find()
+                          .populate("user", "name email phone shopName")
+                          .sort({ createdAt: -1 });
+
+  res.status(200).json({
+    success: true,
+    orders,
+    count: orders.length
+  });
+});
+
+// Update Order Status (Admin)
+export const updateOrderStatus = catchAsyncErrors(async (req, res, next) => {
+  const { orderId } = req.params;
+  const { status } = req.body;
+
+  const order = await Order.findById(orderId);
+  if (!order) {
+    return next(new ErrorHandler("Order not found", 404));
+  }
+
+  if (order.orderStatus === "Delivered") {
+    return next(new ErrorHandler("Order is already delivered", 400));
+  }
+
+  order.orderStatus = status;
+  
+  if (status === "Delivered") {
+    order.deliveredAt = Date.now();
+  }
+  
+  // Add to timeline
+  order.timeline.push({
+    status: status,
+    timestamp: Date.now()
+  });
+
+  await order.save();
+  
+  // Notify User (Email)
+  const user = await User.findById(order.user);
+  if (user) {
+     sendEmail(
+       user.email,
+       `Order Update: ${status}`,
+       `Your order #${order.trackingId} is now ${status}.`
+     ).catch(console.error);
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Order status updated",
+    order
+  });
+});
+
+// Cancel Order (User)
+export const cancelOrder = catchAsyncErrors(async (req, res, next) => {
+  const { orderId } = req.params;
+  const order = await Order.findById(orderId);
+
+  if (!order) {
+    return next(new ErrorHandler("Order not found", 404));
+  }
+  
+  if (order.user.toString() !== req.user._id.toString()) {
+     return next(new ErrorHandler("Unauthorized", 403));
+  }
+
+  if (order.orderStatus === "Delivered" || order.orderStatus === "Out for Delivery") {
+    return next(new ErrorHandler("Cannot cancel order at this stage", 400));
+  }
+
+  order.orderStatus = "Cancelled";
+  order.timeline.push({ status: "Cancelled", timestamp: Date.now() });
+  
+  // Release Stock
+  for (const item of order.orderItems) {
+    const product = await Product.findById(item.product);
+    if (product) {
+      product.stock += item.quantity;
+      await product.save();
+    }
+  }
+
+  await order.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Order cancelled successfully"
+  });
+});
+
+// Cart controllers remain the same (exported from the same file or should be separated, 
+// for now we will keep them if they were in the original file, or re-implement/import them)
+// Wait, the original file had Cart controllers too. I should preserve them.
+// I will copy the Cart controllers from the original file content I read earlier.
+
+// ... [Insert Cart Controllers here] ...
+// Helper: I will assume the previous cart controllers are good, I'll just copy them over.
 
 // Get user's cart
 export const getCart = catchAsyncErrors(async (req, res, next) => {
   const user = await User.findById(req.user._id);
-  
-  // Populate product details for each cart item
   const cartWithProducts = await Promise.all(
     user.cartProducts.map(async (item) => {
       const product = await Product.findById(item.productId);
@@ -21,457 +332,52 @@ export const getCart = catchAsyncErrors(async (req, res, next) => {
       };
     })
   );
-
   res.status(200).json({
     success: true,
     cart: cartWithProducts.filter(item => item.product !== null),
   });
 });
 
-// Add item to cart
 export const addToCart = catchAsyncErrors(async (req, res, next) => {
   const { productId, quantity = 1 } = req.body;
-
-  if (!productId) {
-    return next(new ErrorHandler("Product ID is required!", 400));
-  }
-
-  // Check if product exists
+  if (!productId) return next(new ErrorHandler("Product ID is required!", 400));
   const product = await Product.findById(productId);
-  if (!product) {
-    return next(new ErrorHandler("Product not found!", 404));
-  }
-
+  if (!product) return next(new ErrorHandler("Product not found!", 404));
   const user = await User.findById(req.user._id);
-  
-  // Check if product already in cart
-  const existingItemIndex = user.cartProducts.findIndex(
-    (item) => item.productId === productId
-  );
-
+  const existingItemIndex = user.cartProducts.findIndex((item) => item.productId === productId);
   if (existingItemIndex >= 0) {
-    // Update quantity
     user.cartProducts[existingItemIndex].quantity += quantity;
   } else {
-    // Add new item
     user.cartProducts.push({ productId, quantity });
   }
-
   await user.save();
-
-  res.status(200).json({
-    success: true,
-    message: "Product added to cart",
-    cart: user.cartProducts,
-  });
+  res.status(200).json({ success: true, message: "Product added to cart", cart: user.cartProducts });
 });
 
-// Remove item from cart
 export const removeFromCart = catchAsyncErrors(async (req, res, next) => {
   const { productId } = req.body;
-
-  if (!productId) {
-    return next(new ErrorHandler("Product ID is required!", 400));
-  }
-
+  if (!productId) return next(new ErrorHandler("Product ID is required!", 400));
   const user = await User.findById(req.user._id);
-  
-  user.cartProducts = user.cartProducts.filter(
-    (item) => item.productId !== productId
-  );
-
+  user.cartProducts = user.cartProducts.filter((item) => item.productId !== productId);
   await user.save();
-
-  res.status(200).json({
-    success: true,
-    message: "Product removed from cart",
-    cart: user.cartProducts,
-  });
+  res.status(200).json({ success: true, message: "Product removed from cart", cart: user.cartProducts });
 });
 
-// Update cart item quantity
 export const updateCartQuantity = catchAsyncErrors(async (req, res, next) => {
   const { productId, quantity } = req.body;
-
-  if (!productId || quantity === undefined) {
-    return next(new ErrorHandler("Product ID and quantity are required!", 400));
-  }
-
-  if (quantity <= 0) {
-    return next(new ErrorHandler("Quantity must be greater than 0!", 400));
-  }
-
+  if (!productId || quantity === undefined) return next(new ErrorHandler("Product ID and quantity are required!", 400));
+  if (quantity <= 0) return next(new ErrorHandler("Quantity must be greater than 0!", 400));
   const user = await User.findById(req.user._id);
-  
-  const itemIndex = user.cartProducts.findIndex(
-    (item) => item.productId === productId
-  );
-
-  if (itemIndex < 0) {
-    return next(new ErrorHandler("Product not found in cart!", 404));
-  }
-
+  const itemIndex = user.cartProducts.findIndex((item) => item.productId === productId);
+  if (itemIndex < 0) return next(new ErrorHandler("Product not found in cart!", 404));
   user.cartProducts[itemIndex].quantity = quantity;
   await user.save();
-
-  res.status(200).json({
-    success: true,
-    message: "Cart updated",
-    cart: user.cartProducts,
-  });
+  res.status(200).json({ success: true, message: "Cart updated", cart: user.cartProducts });
 });
 
-// Clear entire cart
 export const clearCart = catchAsyncErrors(async (req, res, next) => {
   const user = await User.findById(req.user._id);
   user.cartProducts = [];
   await user.save();
-
-  res.status(200).json({
-    success: true,
-    message: "Cart cleared",
-  });
+  res.status(200).json({ success: true, message: "Cart cleared" });
 });
-
-// ==================== ORDER CONTROLLERS ====================
-
-// Place a new order
-export const placeOrder = catchAsyncErrors(async (req, res, next) => {
-  const { products, deliveryAddress, paymentMethod } = req.body;
-
-  if (!products || products.length === 0) {
-    return next(new ErrorHandler("No products to order!", 400));
-  }
-
-  // 1. Validate Stock
-  for (const item of products) {
-    const product = await Product.findById(item.productId);
-    if (!product) {
-      return next(new ErrorHandler(`Product not found: ${item.productId}`, 404));
-    }
-    if (product.stock < item.quantity) {
-      return next(new ErrorHandler(`Insufficient stock for ${product.productName}`, 400));
-    }
-  }
-
-  const user = await User.findById(req.user._id);
-
-  // 2. Decorate items and Deduct Stock
-  const orderItems = [];
-  const lowStockThreshold = 5;
-
-  for (const item of products) {
-    const product = await Product.findById(item.productId);
-    
-    // Deduct stock
-    product.stock -= item.quantity;
-    await product.save();
-    
-    // Low Stock Alert
-    if (product.stock < lowStockThreshold) {
-       // Send async email (don't await to avoid delay)
-       sendEmail(
-         process.env.SMTP_EMAIL, 
-         "⚠️ Low Stock Alert - Aman Enterprises",
-         `Product "${product.productName}" is running low on stock. Current Quantity: ${product.stock}`
-       ).catch(err => console.error("Alert Email Failed:", err));
-    }
-    
-    orderItems.push({
-      productId: item.productId,
-      quantity: item.quantity.toString(),
-      status: "Placed",
-      cancelledByUser: false,
-      cancelledByAdmin: false,
-    });
-  }
-
-  // Add to user's orders
-  user.orders.push(...orderItems);
-  
-  // Clear cart after placing order
-  user.cartProducts = [];
-  
-  await user.save();
-  
-  // Order Confirmation Email
-  sendEmail(
-      user.email,
-      "Order Placed - Aman Enterprises",
-      `Your order for ${orderItems.length} items has been placed successfully!`
-  ).catch(console.error);
-
-  res.status(200).json({
-    success: true,
-    message: "Order placed successfully!",
-    orders: orderItems,
-  });
-});
-
-// Get all orders for user
-export const getOrders = catchAsyncErrors(async (req, res, next) => {
-  const user = await User.findById(req.user._id);
-
-  // Populate product details for each order
-  const ordersWithProducts = await Promise.all(
-    user.orders.map(async (order) => {
-      const product = await Product.findById(order.productId);
-      return {
-        orderId: order._id,
-        productId: order.productId,
-        quantity: order.quantity,
-        status: order.status,
-        cancelledByUser: order.cancelledByUser,
-        cancelledByAdmin: order.cancelledByAdmin,
-        product: product || null,
-      };
-    })
-  );
-
-  res.status(200).json({
-    success: true,
-    orders: ordersWithProducts.filter(order => order.product !== null),
-  });
-});
-
-// Get single order by ID
-export const getOrderById = catchAsyncErrors(async (req, res, next) => {
-  const { orderId } = req.params;
-  
-  const user = await User.findById(req.user._id);
-  const order = user.orders.id(orderId);
-
-  if (!order) {
-    return next(new ErrorHandler("Order not found!", 404));
-  }
-
-  const product = await Product.findById(order.productId);
-
-  res.status(200).json({
-    success: true,
-    order: {
-      ...order.toObject(),
-      product,
-    },
-  });
-});
-
-// Cancel an order
-export const cancelOrder = catchAsyncErrors(async (req, res, next) => {
-  const { orderId } = req.params;
-  
-  const user = await User.findById(req.user._id);
-  const order = user.orders.id(orderId);
-
-  if (!order) {
-    return next(new ErrorHandler("Order not found!", 404));
-  }
-
-  if (order.status === "Delivered") {
-    return next(new ErrorHandler("Cannot cancel delivered order!", 400));
-  }
-
-  if (order.cancelledByUser || order.cancelledByAdmin) {
-    return next(new ErrorHandler("Order is already cancelled!", 400));
-  }
-
-  order.cancelledByUser = true;
-  order.status = "Cancelled";
-  
-  await user.save();
-
-  res.status(200).json({
-    success: true,
-    message: "Order cancelled successfully",
-  });
-});
-
-// ==================== ORDER TRACKING (HTTP POLLING) ====================
-
-/**
- * GET /order/status?orderId=xxx
- * Lightweight endpoint for polling - returns only status info
- * Frontend should poll every 5-10 seconds for active orders
- */
-export const getOrderStatus = catchAsyncErrors(async (req, res, next) => {
-  const { orderId } = req.query;
-
-  if (!orderId) {
-    return next(new ErrorHandler("Order ID is required!", 400));
-  }
-
-  const user = await User.findById(req.user._id);
-  const order = user.orders.id(orderId);
-
-  if (!order) {
-    return next(new ErrorHandler("Order not found!", 404));
-  }
-
-  // Return minimal data for efficient polling
-  res.status(200).json({
-    success: true,
-    orderId: order._id,
-    status: order.status,
-    statusCode: getStatusCode(order.status),
-    isCancelled: order.cancelledByUser || order.cancelledByAdmin,
-    isDelivered: order.status === "Delivered",
-    updatedAt: order.updatedAt || new Date(),
-  });
-});
-
-/**
- * PUT /order/update-status/:orderId (Admin only)
- * Update order status - triggers change that polling will detect
- */
-export const updateOrderStatus = catchAsyncErrors(async (req, res, next) => {
-  const { orderId } = req.params;
-  const { status } = req.body;
-
-  const validStatuses = ["Placed", "Confirmed", "Packed", "Out for Delivery", "Delivered"];
-  
-  if (!status || !validStatuses.includes(status)) {
-    return next(new ErrorHandler(`Invalid status! Must be one of: ${validStatuses.join(", ")}`, 400));
-  }
-
-  // Find user with this order
-  const user = await User.findOne({ "orders._id": orderId });
-  
-  if (!user) {
-    return next(new ErrorHandler("Order not found!", 404));
-  }
-
-  const order = user.orders.id(orderId);
-  
-  if (order.cancelledByUser || order.cancelledByAdmin) {
-    return next(new ErrorHandler("Cannot update cancelled order!", 400));
-  }
-
-  order.status = status;
-  order.updatedAt = new Date();
-  
-  await user.save();
-
-  // Order Status Email
-  if (["Out for Delivery", "Delivered"].includes(status)) {
-     sendEmail(
-       user.email,
-       `Order Update: ${status}`,
-       `Your order ${order._id} is now ${status}. Thank you for shopping with Aman Enterprises!`
-     ).catch(console.error);
-  }
-
-  res.status(200).json({
-    success: true,
-    message: `Order status updated to: ${status}`,
-    order: {
-      orderId: order._id,
-      status: order.status,
-      statusCode: getStatusCode(status),
-    },
-  });
-});
-
-/**
- * GET /order/active-orders
- * Get all active (non-delivered) orders for a user
- * Frontend uses this to know which orders to poll
- */
-export const getActiveOrders = catchAsyncErrors(async (req, res, next) => {
-  const user = await User.findById(req.user._id);
-
-  const activeOrders = user.orders.filter(
-    (order) => 
-      order.status !== "Delivered" && 
-      !order.cancelledByUser && 
-      !order.cancelledByAdmin
-  );
-
-  const ordersWithProducts = await Promise.all(
-    activeOrders.map(async (order) => {
-      const product = await Product.findById(order.productId);
-      return {
-        orderId: order._id,
-        productId: order.productId,
-        status: order.status,
-        statusCode: getStatusCode(order.status),
-        product: product ? {
-          name: product.productName,
-          image: product.image?.url,
-          price: product.price,
-        } : null,
-      };
-    })
-  );
-
-  res.status(200).json({
-    success: true,
-    activeOrders: ordersWithProducts,
-    count: ordersWithProducts.length,
-  });
-});
-
-// Helper function to convert status to numeric code for easy comparison
-function getStatusCode(status) {
-  const statusMap = {
-    "Placed": 1,
-    "Confirmed": 2,
-    "Packed": 3,
-    "Out for Delivery": 4,
-    "Delivered": 5,
-    "Cancelled": 0,
-  };
-  return statusMap[status] || 0;
-}
-
-// Get ALL orders (Admin only)
-export const getAllOrdersAdmin = catchAsyncErrors(async (req, res, next) => {
-  const users = await User.find();
-  let allOrders = [];
-
-  // Extract orders from all users
-  for (const user of users) {
-    if (user.orders && user.orders.length > 0) {
-      for (const order of user.orders) {
-        allOrders.push({
-          ...order.toObject(),
-          userDetails: {
-            id: user._id,
-            name: user.shopName || "Unknown",
-            phone: user.phone,
-            address: user.address,
-            city: user.city,
-            pincode: user.pincode,
-          },
-        });
-      }
-    }
-  }
-
-  // Populate product details
-  const populatedOrders = await Promise.all(
-    allOrders.map(async (order) => {
-      const product = await Product.findById(order.productId);
-      return {
-        ...order,
-        product: product
-          ? {
-              name: product.productName,
-              image: product.image?.url,
-              price: product.price,
-              category: product.category,
-            }
-          : null,
-      };
-    })
-  );
-  
-  // Sort by date (newest first)
-  populatedOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-  res.status(200).json({
-    success: true,
-    orders: populatedOrders,
-    count: populatedOrders.length,
-  });
-});
-

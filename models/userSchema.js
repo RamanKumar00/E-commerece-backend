@@ -73,22 +73,8 @@ const userSchema = new mongoose.Schema({
 
   orders: [
     {
-      productId: {
-        type: String,
-      },
-      quantity: {
-        type: String,
-      },
-      status: {
-        type: String,
-        enum: ["Placed", "Shipped", "Delivered"],
-      },
-      cancelledByUser: {
-        type: Boolean,
-      },
-      cancelledByAdmin: {
-        type: Boolean,
-      },
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Order",
     },
   ],
 });

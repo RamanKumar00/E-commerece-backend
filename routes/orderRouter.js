@@ -12,52 +12,32 @@ import {
   cancelOrder,
   getOrderStatus,
   updateOrderStatus,
-  getActiveOrders,
   getAllOrdersAdmin,
 } from "../controllers/orderController.js";
 
-const app = express.Router();
+const router = express.Router();
 
 // ==================== CART ROUTES ====================
-// route - /api/v1/order/cart
-app.get("/cart", isAuthenticated, getCart);
-
-// route - /api/v1/order/cart/add
-app.post("/cart/add", isAuthenticated, addToCart);
-
-// route - /api/v1/order/cart/remove
-app.delete("/cart/remove", isAuthenticated, removeFromCart);
-
-// route - /api/v1/order/cart/update
-app.put("/cart/update", isAuthenticated, updateCartQuantity);
-
-// route - /api/v1/order/cart/clear
-app.delete("/cart/clear", isAuthenticated, clearCart);
+router.get("/cart", isAuthenticated, getCart);
+router.post("/cart/add", isAuthenticated, addToCart);
+router.delete("/cart/remove", isAuthenticated, removeFromCart);
+router.put("/cart/update", isAuthenticated, updateCartQuantity);
+router.delete("/cart/clear", isAuthenticated, clearCart);
 
 // ==================== ORDER ROUTES ====================
-// route - /api/v1/order/place
-app.post("/place", isAuthenticated, placeOrder);
+router.post("/place", isAuthenticated, placeOrder);
+router.get("/my", isAuthenticated, getOrders); // Changed from /my-orders to match Service
+router.put("/:orderId/cancel", isAuthenticated, cancelOrder); // Matches /$orderId/cancel
 
-// route - /api/v1/order/my-orders
-app.get("/my-orders", isAuthenticated, getOrders);
+// ==================== ORDER TRACKING ====================
+router.get("/status", isAuthenticated, getOrderStatus);
+// router.get("/active", isAuthenticated, getActiveOrders); // Commented out unless added to controller
 
-// route - /api/v1/order/cancel/:orderId
-app.put("/cancel/:orderId", isAuthenticated, cancelOrder);
+// ==================== ADMIN ROUTES ====================
+router.put("/update-status/:orderId", isAdminAuthenticated, updateOrderStatus);
+router.get("/admin/all", isAdminAuthenticated, getAllOrdersAdmin); // Changed from /admin/all-orders to be simpler
 
-// ==================== ORDER TRACKING (HTTP POLLING) ====================
-// route - /api/v1/order/status?orderId=xxx (Lightweight polling endpoint)
-app.get("/status", isAuthenticated, getOrderStatus);
+// ==================== DETAILS ====================
+router.get("/:orderId", isAuthenticated, getOrderById);
 
-// route - /api/v1/order/active-orders (Get orders that need polling)
-app.get("/active-orders", isAuthenticated, getActiveOrders);
-
-// route - /api/v1/order/update-status/:orderId (Admin updates status)
-app.put("/update-status/:orderId", isAdminAuthenticated, updateOrderStatus);
-
-// route - /api/v1/order/admin/all-orders (Admin gets ALL orders)
-app.get("/admin/all-orders", isAdminAuthenticated, getAllOrdersAdmin);
-
-// route - /api/v1/order/:orderId (Keep at end - catches remaining patterns)
-app.get("/:orderId", isAuthenticated, getOrderById);
-
-export default app;
+export default router;
