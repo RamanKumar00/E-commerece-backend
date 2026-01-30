@@ -114,6 +114,102 @@ export const newProduct = catchAsyncErrors(async (req, res, next) => {
   });
 });
 
+export const updateProduct = catchAsyncErrors(async (req, res, next) => {
+  const { id } = req.params;
+  let product = await Product.findById(id);
+
+  if (!product) {
+    return next(new ErrorHandler("Product not found", 404));
+  }
+
+  // Handle Image Update
+  let image = null;
+  let isPexels = false;
+  let pexelsId = null;
+
+  if (req.files && (req.files.image || req.files.doc)) {
+    image = req.files.image || req.files.doc;
+  } else if (req.body.imageUrl) {
+    image = req.body.imageUrl;
+    isPexels = true;
+  }
+
+  if (image) {
+    // Delete old image from Cloudinary if it exists and isn't a pexels/dummy one
+    if (product.image && product.image.public_id && !product.image.public_id.startsWith('pexels_')) {
+        try {
+            await cloudinary.uploader.destroy(product.image.public_id);
+        } catch(err) {
+            console.error("Failed to delete old image:", err);
+        }
+    }
+
+    let imageData = {};
+
+    if (isPexels) {
+        imageData = {
+            public_id: "pexels_image",
+            url: image,
+        };
+        product.pexelsPhotoId = pexelsId; // pexelsId might be null if manually pasted URL, that's fine
+    } else {
+        const allowedFormats = ["image/png", "image/jpeg", "image/webp"];
+        if (!image.mimetype || !allowedFormats.includes(image.mimetype)) {
+            return next(new ErrorHandler("File format not supported!", 400));
+        }
+
+        const cloudinaryResponse = await cloudinary.uploader.upload(
+            image.tempFilePath
+        );
+        
+        if (!cloudinaryResponse || cloudinaryResponse.error) {
+            return next(new ErrorHandler("Failed To Upload Product Image", 500));
+        }
+        
+        imageData = {
+            public_id: cloudinaryResponse.public_id,
+            url: cloudinaryResponse.secure_url,
+        };
+    }
+
+    product.image = imageData;
+  }
+
+  // Update other fields
+  const {
+    productName,
+    description,
+    stock,
+    price,
+    subCategory,
+    parentCategory,
+    category,
+    b2bMinQty,
+    b2bPrice,
+    isB2BAvailable
+  } = req.body;
+
+  if (productName) product.productName = productName;
+  if (description) product.description = description;
+  if (stock) product.stock = stock;
+  if (price) product.price = price;
+  if (category) {
+      product.subCategory = subCategory || category;
+      product.parentCategory = parentCategory || category;
+  }
+  if (b2bMinQty) product.b2bMinQty = b2bMinQty;
+  if (b2bPrice) product.b2bPrice = b2bPrice;
+  if (isB2BAvailable !== undefined) product.isB2BAvailable = isB2BAvailable;
+
+  await product.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Product Updated Successfully",
+    product,
+  });
+});
+
 export const getProduct = catchAsyncErrors(async (req, res, next) => {
   const { productId } = req.query;
 

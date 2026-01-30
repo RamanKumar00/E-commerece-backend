@@ -15,6 +15,7 @@ import deliverySlotRouter from "./routes/deliverySlotRouter.js";
 import notificationRouter from "./routes/notificationRouter.js";
 import analyticsRouter from "./routes/analyticsRouter.js";
 import paymentRouter from "./routes/paymentRouter.js";
+import flashDealRouter from "./routes/flashDealRouter.js";
 import { languageMiddleware } from "./middlewares/language.js";
 
 const app = express();
@@ -51,6 +52,7 @@ app.use("/api/v1/delivery-slot", deliverySlotRouter);
 app.use("/api/v1/notification", notificationRouter);
 app.use("/api/v1/analytics", analyticsRouter);
 app.use("/api/v1/payment", paymentRouter);
+app.use("/api/v1/flash-deal", flashDealRouter);
 
 dbConnection();
 

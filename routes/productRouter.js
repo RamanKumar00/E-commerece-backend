@@ -1,7 +1,7 @@
 import express from "express";
 
 import { addBannerImages, getHomeScreenData, getPaginatedProducts, getProduct, newProduct, removeABannerImage, searchProduct,
-  deleteProduct,
+  deleteProduct, updateProduct,
   getSuggestedImages,
 } from "../controllers/productController.js";
 import { isAdminAuthenticated, isAuthenticated } from "../middlewares/auth.js";
@@ -9,6 +9,9 @@ const app = express.Router();
 
 // route - /api/product/addnew
 app.post("/addnew",  isAdminAuthenticated, newProduct);
+
+// route - /api/product/update/:id
+app.put("/update/:id", isAdminAuthenticated, updateProduct);
 
 // route - /api/product/:productId
 app.get("/", isAuthenticated, getProduct);
