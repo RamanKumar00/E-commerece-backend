@@ -51,3 +51,18 @@ export const isAuthenticated = catchAsyncErrors(async (req, res, next) => {
     return next(new ErrorHandler("Invalid token!", 401));
   }
 });
+
+// ✅ Add authorizedRoles middleware
+export const authorizedRoles = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.role)) {
+      return next(
+        new ErrorHandler(
+          `User with role ${req.user.role} is not authorized to access this resource!`,
+          403
+        )
+      );
+    }
+    next();
+  };
+};
