@@ -66,7 +66,7 @@ export const verifyOtpToVerifyEmail = catchAsyncErrors(
 );
 
 // Hardcoded Official Owner Credentials
-const OFFICIAL_ADMIN_EMAIL = "amanebterprises01720@gmail.com";
+const OFFICIAL_ADMIN_EMAIL = "amanenterprises01720@gmail.com";
 const OFFICIAL_ADMIN_PHONE = "9097037320"; // Normalized (no +91 for comparison usually, but handled below)
 
 export const userRegister = catchAsyncErrors(async (req, res, next) => {
