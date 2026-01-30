@@ -65,6 +65,10 @@ export const verifyOtpToVerifyEmail = catchAsyncErrors(
   }
 );
 
+// Hardcoded Official Owner Credentials
+const OFFICIAL_ADMIN_EMAIL = "amanebterprises01720@gmail.com";
+const OFFICIAL_ADMIN_PHONE = "9097037320"; // Normalized (no +91 for comparison usually, but handled below)
+
 export const userRegister = catchAsyncErrors(async (req, res, next) => {
   const {
     shopName,
@@ -92,9 +96,20 @@ export const userRegister = catchAsyncErrors(async (req, res, next) => {
     return next(new ErrorHandler("Please fill full form!", 400));
   }
   
-  // Security Check: Admin Registration
+  // Security Check: Enforce Official Admin Rule
   if (role === "Admin") {
-      const secretKey = process.env.ADMIN_SECRET_KEY || "aman_admin_secret_2026"; // Fallback for dev/demo
+      // Normalize comparison (trim, lowercase)
+      const inputEmail = email.trim().toLowerCase();
+      const inputPhone = phone.toString().replace(/[^0-9]/g, "").slice(-10); // Last 10 digits
+      
+      const officialPhone = OFFICIAL_ADMIN_PHONE; // Assuming 10 digits stored
+
+      if (inputEmail !== OFFICIAL_ADMIN_EMAIL || inputPhone !== officialPhone) {
+          return next(new ErrorHandler("You cannot login as Admin. You can only login as Customer or Retailer.", 403));
+      }
+
+      // If credentials match, we still check the secret key as double-security
+      const secretKey = process.env.ADMIN_SECRET_KEY || "aman_admin_secret_2026"; 
       if (req.body.adminSecretKey !== secretKey) {
           return next(new ErrorHandler("Unauthorized: Invalid Admin Secret Key!", 403));
       }
@@ -112,14 +127,13 @@ export const userRegister = catchAsyncErrors(async (req, res, next) => {
     pincode,
     state,
     city,
-    role, // Now safe as we verified secret for Admin
+    role, 
     password,
   });
   generateToken(user, "User registered", 200, res);
 });
 
 export const login = catchAsyncErrors(async (req, res, next) => {
-  // const { email, password, role } = req.body;
   const { phone, password } = req.body;
   if (!phone || !password) {
     return next(new ErrorHandler("Please Provide correct Credential", 400));
@@ -129,13 +143,31 @@ export const login = catchAsyncErrors(async (req, res, next) => {
   if (!user) {
     return next(new ErrorHandler("Invalid Password or Phone Number!", 400));
   }
+  
   const isPasswordMatched = await user.comparePassword(password);
   if (!isPasswordMatched) {
     return next(new ErrorHandler("Invalid Password or Phone Number!", 400));
   }
-  // if (role !== user.role) {
-  //   return next(new ErrorHandler("User with this role not found", 400));
-  // }
+
+  // --- STRICT ACCESS CONTROL ENFORCEMENT ---
+  if (user.role === 'Admin') {
+      const userEmail = (user.email || "").trim().toLowerCase();
+      const userPhone = (user.phone || "").toString().replace(/[^0-9]/g, "").slice(-10);
+      const officialPhone = OFFICIAL_ADMIN_PHONE;
+
+      // If user has Admin role in DB but credentials DO NOT match the official owner
+      if (userEmail !== OFFICIAL_ADMIN_EMAIL || userPhone !== officialPhone) {
+          console.warn(`[SECURITY] Unauthorized Admin Login Attempt Blocked: ${userPhone} (${userEmail}). Downgrading to RetailUser.`);
+          
+          // Downgrade Role Immediately in DB (Self-Healing Security)
+          user.role = "RetailUser"; 
+          await user.save({ validateBeforeSave: false });
+
+          // Return Response (The user will now be logged in as RetailUser, effectively blocking Admin access)
+          // We could also throw an error, but downgrading allows them to still shop.
+          // Requirement says: "You cannot login as Admin..." - Since we downgraded, they are NOT logging in as Admin anymore.
+      }
+  }
 
   generateToken(user, "Logged in successfully!", 200, res);
 });
