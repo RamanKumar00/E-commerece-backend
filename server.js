@@ -8,5 +8,5 @@ cloudinary.v2.config({
 });
 
 app.listen(process.env.PORT, '0.0.0.0', () => {
-  console.log(`Server listening at port ${process.env.PORT} on all interfaces`);
+  console.log(`Server listening at port ${process.env.PORT} on all interfaces (v1.1)`);
 });
