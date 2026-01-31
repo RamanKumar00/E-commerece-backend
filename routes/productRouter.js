@@ -28,11 +28,11 @@ app.delete("/banner-image", isAdminAuthenticated, removeABannerImage);
 // route - /api/product/homescreendata
 app.get("/homescreendata", isAuthenticated, getHomeScreenData);
 
-// route - /api/product/:query(eg. shampoo, dove etc.)
-app.get("/search", isAuthenticated, searchProduct);
+// route - /api/product/:query (PUBLIC - search without login)
+app.get("/search", searchProduct);
 
-// route - /api/product?page=1
-app.get("/paginated", isAuthenticated, getPaginatedProducts);
+// route - /api/product?page=1 (PUBLIC - browse without login)
+app.get("/paginated", getPaginatedProducts);
 
 // route - /api/v1/product/delete/:id
 app.delete("/delete/:id", isAuthenticated, deleteProduct);

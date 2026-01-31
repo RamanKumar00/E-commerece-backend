@@ -8,8 +8,8 @@ const app = express.Router();
 // route - /api/v1/category/addnew
 app.post("/addnew", isAdminAuthenticated, addNewCategory);
 
-// route - /api/v1/category
-app.get("/", isAuthenticated, getCategories);
+// route - /api/v1/category (PUBLIC - no auth needed to browse)
+app.get("/", getCategories);
 
 // route - /api/v1/category
 app.delete("/", isAdminAuthenticated, removeACategory);
