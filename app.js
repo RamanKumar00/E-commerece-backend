@@ -20,8 +20,8 @@ import productImportRouter from "./routes/productImportRouter.js";
 import { languageMiddleware } from "./middlewares/language.js";
 
 const app = express();
-// Only load config.env in development - Render sets env vars directly in production
-if (process.env.NODE_ENV !== 'production') {
+// Only load config.env if MONGO_URI not already set (Render sets env vars directly)
+if (!process.env.MONGO_URI) {
   config({ path: "./config/config.env" });
 }
 
