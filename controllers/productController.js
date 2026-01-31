@@ -370,7 +370,7 @@ export const searchProduct = catchAsyncErrors(async (req, res, next) => {
       { subCategory: regex },
       { parentCategory: regex },
     ],
-  });
+  }).sort({ createdAt: -1, _id: -1 });
 
   res.status(200).json({
     success: true,
