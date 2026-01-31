@@ -20,8 +20,10 @@ import productImportRouter from "./routes/productImportRouter.js";
 import { languageMiddleware } from "./middlewares/language.js";
 
 const app = express();
-// Load from config.env only if env vars don't exist (Render sets them directly)
-config({ path: "./config/config.env", override: false });
+// Only load config.env in development - Render sets env vars directly in production
+if (process.env.NODE_ENV !== 'production') {
+  config({ path: "./config/config.env" });
+}
 
 app.use(
   cors({
