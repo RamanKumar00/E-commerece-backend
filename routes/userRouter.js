@@ -10,7 +10,8 @@ import {
   verifyOtpToVerifyEmail,
   updateLanguage,
   getAllUsers,
-  updateUserRole
+  updateUserRole,
+  updateFcmToken,
 } from "../controllers/userController.js";
 import { isAuthenticated, isAdminAuthenticated } from "../middlewares/auth.js";
 const app = express.Router();
@@ -41,6 +42,9 @@ app.put("/create-password", createNewPassword);
 
 // route - /api/v1/user/language
 app.put("/language", isAuthenticated, updateLanguage);
+
+// route - /api/v1/user/fcm
+app.put("/fcm", isAuthenticated, updateFcmToken);
 
 // Admin Routes
 app.get("/admin/all-users", isAuthenticated, isAdminAuthenticated, getAllUsers);

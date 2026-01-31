@@ -335,3 +335,28 @@ export const updateUserRole = catchAsyncErrors(async (req, res, next) => {
   });
 });
 
+export const updateFcmToken = catchAsyncErrors(async (req, res, next) => {
+  const { fcmToken } = req.body;
+  if (!fcmToken) {
+    return next(new ErrorHandler("FCM Token is required", 400));
+  }
+  
+  const user = await User.findById(req.user.id);
+  if (!user) {
+    return next(new ErrorHandler("User not found", 404));
+  }
+
+  // Add token if not already present to avoid duplicates
+  if (!user.fcmTokens) user.fcmTokens = [];
+  
+  if (!user.fcmTokens.includes(fcmToken)) {
+      user.fcmTokens.push(fcmToken);
+      await user.save({ validateBeforeSave: false });
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "FCM Token updated successfully",
+  });
+});
+

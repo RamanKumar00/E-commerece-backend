@@ -6,6 +6,7 @@ import { Coupon } from "../models/couponSchema.js"; // New Schema
 import ErrorHandler from "../middlewares/error.js";
 import { sendEmail } from "../utils/sendEmail.js";
 import { syncToExcel } from "./productController.js";
+import { sendNotificationToAdmins } from "../utils/notificationService.js";
 
 // ==================== ORDER CONTROLLERS ====================
 
@@ -175,6 +176,16 @@ export const placeOrder = catchAsyncErrors(async (req, res, next) => {
       "Order Confirmation - Aman Enterprises",
       `Your order #${order.trackingId} has been placed! Total: ₹${totalPrice.toFixed(2)}`
   ).catch(console.error);
+
+  // 8. Notify Admins
+  const notificationTitle = "New Order Placed! 📦";
+  const notificationBody = `Order #${order.trackingId} by ${req.user.role === 'RetailUser' ? 'Retailer' : 'Customer'} (${req.user.phone}). Total: ₹${totalPrice.toFixed(2)}`;
+  
+  sendNotificationToAdmins(notificationTitle, notificationBody, {
+    orderId: order._id.toString(),
+    trackingId: order.trackingId,
+    type: "NEW_ORDER"
+  }).catch(err => console.error("Admin Notification Failed:", err));
 
   res.status(201).json({
     success: true,
