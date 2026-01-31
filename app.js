@@ -20,7 +20,8 @@ import productImportRouter from "./routes/productImportRouter.js";
 import { languageMiddleware } from "./middlewares/language.js";
 
 const app = express();
-config({ path: "./config/config.env" });
+// Load from config.env only if env vars don't exist (Render sets them directly)
+config({ path: "./config/config.env", override: false });
 
 app.use(
   cors({
