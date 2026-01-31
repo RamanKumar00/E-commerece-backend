@@ -84,26 +84,17 @@ app.get("/api/v1/health", async (req, res) => {
       success: true,
       database: {
         status: dbStates[dbState] || 'unknown',
-        stateCode: dbState,
         dbName: mongoose.connection.name || 'not connected',
-        host: mongoose.connection.host || 'unknown',
-        collections: collectionNames
       },
       counts: {
         categories: categoryCount,
         activeProducts: productCount,
-        rawCategories: rawCategories,
-        rawProducts: rawProducts
-      },
-      mongoUri: process.env.MONGO_URI ? process.env.MONGO_URI.substring(0, 70) + '...' : 'NOT SET',
-      uriCluster: process.env.MONGO_URI ? (process.env.MONGO_URI.match(/@([^/]+)/)?.[1] || 'unknown') : 'NOT SET'
+      }
     });
   } catch (error) {
-    res.json({
+    res.status(500).json({
       success: false,
-      error: error.message,
-      stack: error.stack?.substring(0, 200),
-      mongoUri: process.env.MONGO_URI ? 'SET' : 'NOT SET'
+      error: "Health check failed"
     });
   }
 });
