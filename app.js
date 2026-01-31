@@ -56,6 +56,41 @@ app.use("/api/v1/payment", paymentRouter);
 app.use("/api/v1/flash-deal", flashDealRouter);
 app.use("/api/v1/product-ops", productImportRouter);
 
+// Debug health check endpoint
+import mongoose from "mongoose";
+import { Category } from "./models/categorySchema.js";
+import { Product } from "./models/productSchema.js";
+
+app.get("/api/v1/health", async (req, res) => {
+  try {
+    const dbState = mongoose.connection.readyState;
+    const dbStates = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
+    
+    const categoryCount = await Category.countDocuments();
+    const productCount = await Product.countDocuments({ isActive: true });
+    
+    res.json({
+      success: true,
+      database: {
+        status: dbStates[dbState] || 'unknown',
+        stateCode: dbState,
+        dbName: mongoose.connection.name || 'not connected',
+      },
+      counts: {
+        categories: categoryCount,
+        activeProducts: productCount
+      },
+      mongoUri: process.env.MONGO_URI ? process.env.MONGO_URI.substring(0, 40) + '...' : 'NOT SET'
+    });
+  } catch (error) {
+    res.json({
+      success: false,
+      error: error.message,
+      mongoUri: process.env.MONGO_URI ? 'SET' : 'NOT SET'
+    });
+  }
+});
+
 dbConnection();
 
 app.use(errorMiddleware);
