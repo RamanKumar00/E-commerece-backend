@@ -38,7 +38,7 @@ export const importProducts = async (req, res) => {
         // Map Columns
         // Expected Excel Headers: "Item name", "Category", "Sale price", "Purchase price", "Current stock quantity", "Discount", "Base Unit"
         
-        const productName = row["Item name"] || row["Product Name"];
+        const productName = row["Item name*"] || row["Item name"] || row["Product Name"];
         if (!productName) {
           skippedCount++;
           errors.push(`Row skipped: Missing Product Name`);
