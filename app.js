@@ -95,7 +95,8 @@ app.get("/api/v1/health", async (req, res) => {
         rawCategories: rawCategories,
         rawProducts: rawProducts
       },
-      mongoUri: process.env.MONGO_URI ? process.env.MONGO_URI.substring(0, 50) + '...' : 'NOT SET'
+      mongoUri: process.env.MONGO_URI ? process.env.MONGO_URI.substring(0, 70) + '...' : 'NOT SET',
+      uriCluster: process.env.MONGO_URI ? (process.env.MONGO_URI.match(/@([^/]+)/)?.[1] || 'unknown') : 'NOT SET'
     });
   } catch (error) {
     res.json({
