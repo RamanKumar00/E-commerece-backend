@@ -66,6 +66,14 @@ app.get("/api/v1/health", async (req, res) => {
     const dbState = mongoose.connection.readyState;
     const dbStates = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
     
+    // Get all collections
+    const collections = await mongoose.connection.db.listCollections().toArray();
+    const collectionNames = collections.map(c => c.name);
+    
+    // Direct raw query to check data
+    const rawCategories = await mongoose.connection.db.collection('categories').countDocuments();
+    const rawProducts = await mongoose.connection.db.collection('products').countDocuments({ isActive: true });
+    
     const categoryCount = await Category.countDocuments();
     const productCount = await Product.countDocuments({ isActive: true });
     
@@ -75,17 +83,22 @@ app.get("/api/v1/health", async (req, res) => {
         status: dbStates[dbState] || 'unknown',
         stateCode: dbState,
         dbName: mongoose.connection.name || 'not connected',
+        host: mongoose.connection.host || 'unknown',
+        collections: collectionNames
       },
       counts: {
         categories: categoryCount,
-        activeProducts: productCount
+        activeProducts: productCount,
+        rawCategories: rawCategories,
+        rawProducts: rawProducts
       },
-      mongoUri: process.env.MONGO_URI ? process.env.MONGO_URI.substring(0, 40) + '...' : 'NOT SET'
+      mongoUri: process.env.MONGO_URI ? process.env.MONGO_URI.substring(0, 50) + '...' : 'NOT SET'
     });
   } catch (error) {
     res.json({
       success: false,
       error: error.message,
+      stack: error.stack?.substring(0, 200),
       mongoUri: process.env.MONGO_URI ? 'SET' : 'NOT SET'
     });
   }
