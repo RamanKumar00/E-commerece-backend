@@ -92,7 +92,7 @@ export const importProducts = async (req, res) => {
           parentCategory: categoryRaw, // Needs to match Enum
           subCategory: row["Sub Category"] || categoryRaw, // Default to parent if missing
           price: String(price),
-          stock: stock <= 0 ? 0 : stock,
+          stock: stock <= 0 ? 50 : stock, // Default to 50 if stock is 0/negative (Fix for empty excel stock)
           costPrice: Number(costPrice),
           discount: Number(discount),
           unit: unit,
