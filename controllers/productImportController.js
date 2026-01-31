@@ -10,7 +10,12 @@ export const importProducts = async (req, res) => {
     }
 
     const file = req.files.file;
-    const workbook = xlsx.read(file.data, { type: "buffer" });
+    let workbook;
+    if (file.tempFilePath) {
+      workbook = xlsx.readFile(file.tempFilePath);
+    } else {
+      workbook = xlsx.read(file.data, { type: "buffer" });
+    }
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
     const data = xlsx.utils.sheet_to_json(sheet);
