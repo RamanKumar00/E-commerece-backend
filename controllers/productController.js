@@ -398,7 +398,7 @@ export const getPaginatedProducts = catchAsyncErrors(async (req, res, next) => {
   const skip = (page - 1) * limit;
 
   const totalProducts = await Product.countDocuments({ isActive: true });
-  const products = await Product.find({ isActive: true }).skip(skip).limit(limit);
+  const products = await Product.find({ isActive: true }).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit);
 
   res.status(200).json({
     success: true,
