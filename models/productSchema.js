@@ -29,13 +29,6 @@ const productSchema = new mongoose.Schema({
   parentCategory: {
     type: String,
     required: true,
-    enum: [
-      "Personal Care Products",
-      "Food & Beverages",
-      "Home Care Products",
-      "Baby Care Products",
-      "Health Care Products",
-    ],
   },
   // B2B Retailer Fields
   b2bMinQty: {
@@ -49,6 +42,33 @@ const productSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  
+  // New Fields for Bulk Import & Enhanced Catalog
+  sku: {
+    type: String,
+    unique: true,
+    sparse: true // Allows null/undefined if not set initially
+  },
+  costPrice: {
+    type: Number, // Purchase price
+  },
+  discount: {
+    type: Number, // Percentage or fixed amount
+    default: 0
+  },
+  unit: {
+    type: String, // e.g., 'kg', 'pcs', 'liter'
+    default: 'pcs'
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  importedFromExcel: {
+    type: Boolean,
+    default: false
+  },
+
   rating_reviews: [
     {
       rating: {

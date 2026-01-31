@@ -5,6 +5,7 @@ import { Order } from "../models/orderSchema.js"; // New Schema
 import { Coupon } from "../models/couponSchema.js"; // New Schema
 import ErrorHandler from "../middlewares/error.js";
 import { sendEmail } from "../utils/sendEmail.js";
+import { syncToExcel } from "./productController.js";
 
 // ==================== ORDER CONTROLLERS ====================
 
@@ -147,6 +148,9 @@ export const placeOrder = catchAsyncErrors(async (req, res, next) => {
     const product = await Product.findById(item.product);
     product.stock -= item.quantity;
     await product.save();
+
+    // Excel Sync
+    syncToExcel(product, "UPDATE"); // Update stock in Excel
 
     // Low Stock Alert
     if (product.stock < lowStockThreshold) {

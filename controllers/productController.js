@@ -5,6 +5,67 @@ import { Category } from "../models/categorySchema.js";
 import { Product } from "../models/productSchema.js";
 import { fetchPexelsImages } from "../utils/pexels.js";
 import cloudinary from "cloudinary";
+import xlsx from "xlsx";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const excelPath = path.resolve(__dirname, "../../products.xlsx");
+
+// Helper: Sync to Excel
+export const syncToExcel = (product, action = "UPDATE") => {
+  try {
+    if (!fs.existsSync(excelPath)) return;
+
+    const workbook = xlsx.readFile(excelPath);
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    let data = xlsx.utils.sheet_to_json(sheet);
+
+    if (action === "DELETE") {
+      data = data.filter(row => {
+          const name = (row["Item name"] || row["Product Name"] || row["Item name*"] || "").trim();
+          return name.toLowerCase() !== product.productName.toLowerCase();
+      });
+    } else {
+      // Create or Update
+      let found = false;
+      const newRow = {
+        "Item name": product.productName,
+        "Category": product.category || product.parentCategory,
+        "Sub Category": product.subCategory,
+        "Sale price": product.price,
+        "Current stock quantity": product.stock,
+        "Description": product.description,
+        "Unit": "pcs", // Default
+        "Discount": 0
+      };
+
+      data = data.map(row => {
+        const name = (row["Item name"] || row["Product Name"] || row["Item name*"] || "").trim();
+        if (name.toLowerCase() === product.productName.toLowerCase()) {
+          found = true;
+          // Merge updates
+          return { ...row, ...newRow, "Item name": name }; // Keep original name casing if desired
+        }
+        return row;
+      });
+
+      if (!found && action !== "DELETE") {
+        data.push(newRow);
+      }
+    }
+
+    const newSheet = xlsx.utils.json_to_sheet(data);
+    workbook.Sheets[sheetName] = newSheet;
+    xlsx.writeFile(workbook, excelPath);
+    console.log(`✅ Excel Synced: ${action} ${product.productName}`);
+
+  } catch (error) {
+    console.error("❌ Excel Sync Failed:", error);
+  }
+};
 
 //Product......................................................................................
 export const newProduct = catchAsyncErrors(async (req, res, next) => {
@@ -107,6 +168,9 @@ export const newProduct = catchAsyncErrors(async (req, res, next) => {
     isB2BAvailable: isB2BAvailable !== undefined ? isB2BAvailable : true
   });
 
+  // Sync to Excel
+  syncToExcel(product, "CREATE");
+
   res.status(200).json({
     success: true,
     message: `Product Created Successfully`,
@@ -197,11 +261,15 @@ export const updateProduct = catchAsyncErrors(async (req, res, next) => {
       product.subCategory = subCategory || category;
       product.parentCategory = parentCategory || category;
   }
+  // ... (updateProduct logic above) ...
   if (b2bMinQty) product.b2bMinQty = b2bMinQty;
   if (b2bPrice) product.b2bPrice = b2bPrice;
   if (isB2BAvailable !== undefined) product.isB2BAvailable = isB2BAvailable;
 
   await product.save();
+
+  // Sync to Excel
+  syncToExcel(product, "UPDATE");
 
   res.status(200).json({
     success: true,
@@ -296,6 +364,7 @@ export const searchProduct = catchAsyncErrors(async (req, res, next) => {
   const regex = new RegExp(query, "i"); // case-insensitive regex
 
   const products = await Product.find({
+    isActive: true, // Only active products
     $or: [
       { productName: regex },
       { subCategory: regex },
@@ -328,8 +397,8 @@ export const getPaginatedProducts = catchAsyncErrors(async (req, res, next) => {
   const limit = 20;
   const skip = (page - 1) * limit;
 
-  const totalProducts = await Product.countDocuments();
-  const products = await Product.find().skip(skip).limit(limit);
+  const totalProducts = await Product.countDocuments({ isActive: true });
+  const products = await Product.find({ isActive: true }).skip(skip).limit(limit);
 
   res.status(200).json({
     success: true,
@@ -354,6 +423,9 @@ export const deleteProduct = catchAsyncErrors(async (req, res, next) => {
   }
 
   await product.deleteOne();
+
+  // Sync to Excel
+  syncToExcel(product, "DELETE");
 
   res.status(200).json({
     success: true,

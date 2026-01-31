@@ -9,8 +9,10 @@ import {
   sendOTPtoVerifyEmail,
   verifyOtpToVerifyEmail,
   updateLanguage,
+  getAllUsers,
+  updateUserRole
 } from "../controllers/userController.js";
-import { isAuthenticated } from "../middlewares/auth.js";
+import { isAuthenticated, isAdminAuthenticated } from "../middlewares/auth.js";
 const app = express.Router();
 
 // route - /api/otp-verify-email
@@ -39,5 +41,9 @@ app.put("/create-password", createNewPassword);
 
 // route - /api/v1/user/language
 app.put("/language", isAuthenticated, updateLanguage);
+
+// Admin Routes
+app.get("/admin/all-users", isAuthenticated, isAdminAuthenticated, getAllUsers);
+app.put("/admin/update-role/:id", isAuthenticated, isAdminAuthenticated, updateUserRole);
 
 export default app;

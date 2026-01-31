@@ -183,35 +183,47 @@ export const getUserDetails = catchAsyncErrors(async (req, res, next) => {
 export const sendOTPtoGeneratePassword = catchAsyncErrors(
   async (req, res, next) => {
     const { email } = req.body;
-    const otp = Math.floor(100000 + Math.random() * 900000);
-    const subject = "Change Your Password - Aman Enterprises";
-    const message = `Your OTP to generate password is: ${otp} \n Valid for 10 minutes only`;
 
     if (!email) {
-      return res.status(400).json({ error: "All fields are required!" });
+      return res.status(400).json({ error: "Please provide your email address!" });
     }
 
-    const mailSent = await sendEmail(email, subject, message);
-    if (mailSent === false) {
-      return next(new ErrorHandler("Failed to send email!", 400));
+    // 1. Check if user exists first
+    const user = await User.findOne({ email });
+    if (!user) {
+      return next(new ErrorHandler("User not found with this email!", 404));
     }
 
-    // Store OTP and expiration time (10 minutes from now)
-    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
-    await User.findOneAndUpdate(
-      { email: email }, // Find user by email
-      {
-        $set: {
-          passwordRecoveryOtp: otp,
-          passwordRecoveryOtpExpiry: otpExpiry,
-        },
-      }, // Update the specific field
-      { new: true, runValidators: true } // Return updated document & validate changes
-    );
+    // 2. Generate OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString(); // Ensure string for consistency
+    const subject = "Reset Your Password - Aman Enterprises";
+    const message = `Your OTP to reset your password is: ${otp}\n\nValid for 15 minutes only.\nIf you did not request this, please ignore this email.`;
+
+    // 3. Save OTP to DB (Optimistic locking not strictly needed here, but good practice to save first)
+    user.passwordRecoveryOtp = otp;
+    user.passwordRecoveryOtpExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+    await user.save({ validateBeforeSave: false });
+
+    // 4. Send Email
+    try {
+      const mailSent = await sendEmail(email, subject, message);
+      if (mailSent === false) {
+          // If email fails, rollback DB changes
+          user.passwordRecoveryOtp = undefined;
+          user.passwordRecoveryOtpExpiry = undefined;
+          await user.save({ validateBeforeSave: false });
+          return next(new ErrorHandler("Failed to send email. Please try again.", 500));
+      }
+    } catch (error) {
+        user.passwordRecoveryOtp = undefined;
+        user.passwordRecoveryOtpExpiry = undefined;
+        await user.save({ validateBeforeSave: false });
+        return next(new ErrorHandler("Failed to send email. Please try again.", 500));
+    }
 
     res.status(200).json({
       success: true,
-      message: `Email sent successfully to ${email}`,
+      message: `OTP sent successfully to ${email}`,
     });
   }
 );
@@ -286,9 +298,40 @@ export const updateLanguage = catchAsyncErrors(async (req, res, next) => {
   user.language = language;
   await user.save();
   
+// ... existing code ...
   res.status(200).json({
     success: true,
     message: req.t('success_language_update'),
     language: user.language
   });
 });
+
+// Admin: Get All Users
+export const getAllUsers = catchAsyncErrors(async (req, res, next) => {
+  const users = await User.find().sort({ createdAt: -1 });
+  res.status(200).json({
+    success: true,
+    users,
+  });
+});
+
+// Admin: Update User Role (or Block logic if expanded)
+export const updateUserRole = catchAsyncErrors(async (req, res, next) => {
+  const { id } = req.params;
+  const { role } = req.body;
+
+  const user = await User.findById(id);
+  if (!user) {
+    return next(new ErrorHandler("User not found", 404));
+  }
+
+  if (role) user.role = role;
+  await user.save();
+
+  res.status(200).json({
+    success: true,
+    message: "User role updated successfully",
+    user
+  });
+});
+
