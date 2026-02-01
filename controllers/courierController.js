@@ -1,4 +1,4 @@
-import { catchAsyncError } from "../middlewares/catchAsyncError.js";
+import { catchAsyncErrors } from "../middlewares/catchAsyncErrors.js";
 import ErrorHandler from "../middlewares/error.js";
 import { Order } from "../models/orderSchema.js";
 import { Shipment } from "../models/shipmentSchema.js";
@@ -13,7 +13,7 @@ courierManager.initialize();
 /**
  * Check if delivery is possible for a pincode
  */
-export const checkServiceability = catchAsyncError(async (req, res, next) => {
+export const checkServiceability = catchAsyncErrors(async (req, res, next) => {
   const { pickupPincode, deliveryPincode, cod } = req.body;
 
   if (!pickupPincode || !deliveryPincode) {
@@ -40,7 +40,7 @@ export const checkServiceability = catchAsyncError(async (req, res, next) => {
 /**
  * Get shipping rates from all couriers
  */
-export const getRates = catchAsyncError(async (req, res, next) => {
+export const getRates = catchAsyncErrors(async (req, res, next) => {
   const { pickupPincode, deliveryPincode, weight, cod, codAmount } = req.query;
 
   if (!pickupPincode || !deliveryPincode || !weight) {
@@ -70,7 +70,7 @@ export const getRates = catchAsyncError(async (req, res, next) => {
 /**
  * Get recommended courier based on smart routing
  */
-export const getRecommendedCourier = catchAsyncError(async (req, res, next) => {
+export const getRecommendedCourier = catchAsyncErrors(async (req, res, next) => {
   const { pickupPincode, deliveryPincode, weight, cod, codAmount, priority } = req.body;
 
   if (!pickupPincode || !deliveryPincode || !weight) {
@@ -104,7 +104,7 @@ export const getRecommendedCourier = catchAsyncError(async (req, res, next) => {
 /**
  * Create shipment for an order
  */
-export const createShipment = catchAsyncError(async (req, res, next) => {
+export const createShipment = catchAsyncErrors(async (req, res, next) => {
   const { orderId, courierName, autoSelect } = req.body;
 
   if (!orderId) {
@@ -231,7 +231,7 @@ export const createShipment = catchAsyncError(async (req, res, next) => {
 /**
  * Track shipment by AWB number
  */
-export const trackShipment = catchAsyncError(async (req, res, next) => {
+export const trackShipment = catchAsyncErrors(async (req, res, next) => {
   const { awb } = req.params;
 
   if (!awb) {
@@ -253,7 +253,7 @@ export const trackShipment = catchAsyncError(async (req, res, next) => {
 /**
  * Get tracking history
  */
-export const getTrackingHistory = catchAsyncError(async (req, res, next) => {
+export const getTrackingHistory = catchAsyncErrors(async (req, res, next) => {
   const { awb } = req.params;
 
   const history = await courierManager.getTrackingHistory(awb);
@@ -270,7 +270,7 @@ export const getTrackingHistory = catchAsyncError(async (req, res, next) => {
 /**
  * Track by Order ID
  */
-export const trackByOrderId = catchAsyncError(async (req, res, next) => {
+export const trackByOrderId = catchAsyncErrors(async (req, res, next) => {
   const { orderId } = req.params;
 
   const shipment = await Shipment.findOne({ orderId }).populate('courierId');
@@ -295,7 +295,7 @@ export const trackByOrderId = catchAsyncError(async (req, res, next) => {
 /**
  * Cancel shipment
  */
-export const cancelShipment = catchAsyncError(async (req, res, next) => {
+export const cancelShipment = catchAsyncErrors(async (req, res, next) => {
   const { awb, reason } = req.body;
 
   if (!awb) {
@@ -327,7 +327,7 @@ export const cancelShipment = catchAsyncError(async (req, res, next) => {
 /**
  * Webhook endpoint for courier updates
  */
-export const handleWebhook = catchAsyncError(async (req, res, next) => {
+export const handleWebhook = catchAsyncErrors(async (req, res, next) => {
   const { courierName } = req.params;
   const signature = req.headers['x-webhook-signature'] || req.headers['x-signature'];
 
@@ -368,7 +368,7 @@ export const handleWebhook = catchAsyncError(async (req, res, next) => {
 /**
  * Get all courier partners
  */
-export const getCourierPartners = catchAsyncError(async (req, res, next) => {
+export const getCourierPartners = catchAsyncErrors(async (req, res, next) => {
   const partners = await CourierPartner.find();
 
   res.status(200).json({
@@ -382,7 +382,7 @@ export const getCourierPartners = catchAsyncError(async (req, res, next) => {
 /**
  * Get courier performance statistics
  */
-export const getPerformanceStats = catchAsyncError(async (req, res, next) => {
+export const getPerformanceStats = catchAsyncErrors(async (req, res, next) => {
   const stats = await courierManager.getPerformanceStats();
 
   res.status(200).json({
@@ -396,7 +396,7 @@ export const getPerformanceStats = catchAsyncError(async (req, res, next) => {
 /**
  * Get all shipments with filters
  */
-export const getShipments = catchAsyncError(async (req, res, next) => {
+export const getShipments = catchAsyncErrors(async (req, res, next) => {
   const { status, courierName, page = 1, limit = 20 } = req.query;
 
   const filter = {};

@@ -1,4 +1,4 @@
-import { catchAsyncError } from "../middlewares/catchAsyncError.js";
+import { catchAsyncErrors } from "../middlewares/catchAsyncErrors.js";
 import ErrorHandler from "../middlewares/error.js";
 import { Invoice } from "../models/invoiceSchema.js";
 import { Order } from "../models/orderSchema.js";
@@ -57,7 +57,7 @@ const calculateGST = (amount, rate, isInterStateTransaction) => {
 // @desc    Generate invoice for an order
 // @route   POST /api/v1/invoice/generate/:orderId
 // @access  Private
-export const generateInvoice = catchAsyncError(async (req, res, next) => {
+export const generateInvoice = catchAsyncErrors(async (req, res, next) => {
   const { orderId } = req.params;
   const userId = req.user._id;
 
@@ -194,7 +194,7 @@ export const generateInvoice = catchAsyncError(async (req, res, next) => {
 // @desc    Get invoice by order ID
 // @route   GET /api/v1/invoice/order/:orderId
 // @access  Private
-export const getInvoiceByOrder = catchAsyncError(async (req, res, next) => {
+export const getInvoiceByOrder = catchAsyncErrors(async (req, res, next) => {
   const { orderId } = req.params;
   const userId = req.user._id;
 
@@ -219,7 +219,7 @@ export const getInvoiceByOrder = catchAsyncError(async (req, res, next) => {
 // @desc    Get invoice by invoice number
 // @route   GET /api/v1/invoice/:invoiceNumber
 // @access  Private
-export const getInvoiceByNumber = catchAsyncError(async (req, res, next) => {
+export const getInvoiceByNumber = catchAsyncErrors(async (req, res, next) => {
   const { invoiceNumber } = req.params;
   const userId = req.user._id;
 
@@ -244,7 +244,7 @@ export const getInvoiceByNumber = catchAsyncError(async (req, res, next) => {
 // @desc    Get all user's invoices
 // @route   GET /api/v1/invoice/my-invoices
 // @access  Private
-export const getMyInvoices = catchAsyncError(async (req, res, next) => {
+export const getMyInvoices = catchAsyncErrors(async (req, res, next) => {
   const userId = req.user._id;
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
@@ -275,7 +275,7 @@ export const getMyInvoices = catchAsyncError(async (req, res, next) => {
 // @desc    Get all invoices (Admin)
 // @route   GET /api/v1/invoice/admin/all
 // @access  Admin
-export const getAllInvoicesAdmin = catchAsyncError(async (req, res, next) => {
+export const getAllInvoicesAdmin = catchAsyncErrors(async (req, res, next) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
   const status = req.query.status;
@@ -327,7 +327,7 @@ export const getAllInvoicesAdmin = catchAsyncError(async (req, res, next) => {
 // @desc    Get GST summary report (Admin)
 // @route   GET /api/v1/invoice/admin/gst-summary
 // @access  Admin
-export const getGSTSummary = catchAsyncError(async (req, res, next) => {
+export const getGSTSummary = catchAsyncErrors(async (req, res, next) => {
   const { startDate, endDate, period } = req.query;
   
   let start, end;
@@ -390,7 +390,7 @@ export const getGSTSummary = catchAsyncError(async (req, res, next) => {
 // @desc    Update company GST details (Admin)
 // @route   PUT /api/v1/invoice/admin/company-settings
 // @access  Admin
-export const updateCompanySettings = catchAsyncError(async (req, res, next) => {
+export const updateCompanySettings = catchAsyncErrors(async (req, res, next) => {
   const { name, address, city, state, pincode, phone, email, gstin, pan, logo } = req.body;
 
   // In a real app, save to database. For now, just validate and return
@@ -419,7 +419,7 @@ export const updateCompanySettings = catchAsyncError(async (req, res, next) => {
 // @desc    Export invoices (Admin)
 // @route   GET /api/v1/invoice/admin/export
 // @access  Admin
-export const exportInvoices = catchAsyncError(async (req, res, next) => {
+export const exportInvoices = catchAsyncErrors(async (req, res, next) => {
   const { startDate, endDate, format } = req.query;
   
   const query = {
@@ -467,7 +467,7 @@ export const exportInvoices = catchAsyncError(async (req, res, next) => {
 // @desc    Cancel an invoice (Admin)
 // @route   PUT /api/v1/invoice/admin/:invoiceId/cancel
 // @access  Admin
-export const cancelInvoice = catchAsyncError(async (req, res, next) => {
+export const cancelInvoice = catchAsyncErrors(async (req, res, next) => {
   const { invoiceId } = req.params;
   const { reason } = req.body;
 

@@ -1,4 +1,4 @@
-import { catchAsyncError } from "../middlewares/catchAsyncError.js";
+import { catchAsyncErrors } from "../middlewares/catchAsyncErrors.js";
 import ErrorHandler from "../middlewares/error.js";
 import { Product } from "../models/productSchema.js";
 import xlsx from "xlsx";
@@ -7,7 +7,7 @@ import path from "path";
 // ==================== SAMPLE TEMPLATE ====================
 
 // Generate sample download template
-export const downloadTemplate = catchAsyncError(async (req, res, next) => {
+export const downloadTemplate = catchAsyncErrors(async (req, res, next) => {
   const sampleData = [
     {
       "Product Name": "Sample Product 1",
@@ -75,7 +75,7 @@ export const downloadTemplate = catchAsyncError(async (req, res, next) => {
 // ==================== BULK UPLOAD ====================
 
 // Parse and validate uploaded file
-export const parseUploadFile = catchAsyncError(async (req, res, next) => {
+export const parseUploadFile = catchAsyncErrors(async (req, res, next) => {
   if (!req.files || !req.files.file) {
     return next(new ErrorHandler("Please upload a file", 400));
   }
@@ -217,7 +217,7 @@ export const parseUploadFile = catchAsyncError(async (req, res, next) => {
 });
 
 // Execute bulk upload
-export const executeBulkUpload = catchAsyncError(async (req, res, next) => {
+export const executeBulkUpload = catchAsyncErrors(async (req, res, next) => {
   const { products } = req.body;
 
   if (!products || !Array.isArray(products) || products.length === 0) {
@@ -275,7 +275,7 @@ export const executeBulkUpload = catchAsyncError(async (req, res, next) => {
 // ==================== BULK PRICE UPDATE ====================
 
 // Get products for bulk price update
-export const getProductsForPriceUpdate = catchAsyncError(async (req, res, next) => {
+export const getProductsForPriceUpdate = catchAsyncErrors(async (req, res, next) => {
   const { category, search, page = 1, limit = 50 } = req.query;
 
   const filter = {};
@@ -315,7 +315,7 @@ export const getProductsForPriceUpdate = catchAsyncError(async (req, res, next) 
 });
 
 // Preview price changes
-export const previewPriceUpdate = catchAsyncError(async (req, res, next) => {
+export const previewPriceUpdate = catchAsyncErrors(async (req, res, next) => {
   const { productIds, updateType, updateValue, priceField } = req.body;
 
   if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
@@ -382,7 +382,7 @@ export const previewPriceUpdate = catchAsyncError(async (req, res, next) => {
 });
 
 // Execute bulk price update
-export const executePriceUpdate = catchAsyncError(async (req, res, next) => {
+export const executePriceUpdate = catchAsyncErrors(async (req, res, next) => {
   const { updates, priceField } = req.body;
 
   if (!updates || !Array.isArray(updates) || updates.length === 0) {
@@ -423,7 +423,7 @@ export const executePriceUpdate = catchAsyncError(async (req, res, next) => {
 // ==================== BULK STOCK UPDATE ====================
 
 // Get low stock products
-export const getLowStockProducts = catchAsyncError(async (req, res, next) => {
+export const getLowStockProducts = catchAsyncErrors(async (req, res, next) => {
   const { threshold = 10 } = req.query;
 
   const products = await Product.find({ stockQuantity: { $lte: parseInt(threshold) } })
@@ -441,7 +441,7 @@ export const getLowStockProducts = catchAsyncError(async (req, res, next) => {
 });
 
 // Parse stock update file
-export const parseStockFile = catchAsyncError(async (req, res, next) => {
+export const parseStockFile = catchAsyncErrors(async (req, res, next) => {
   if (!req.files || !req.files.file) {
     return next(new ErrorHandler("Please upload a file", 400));
   }
@@ -529,7 +529,7 @@ export const parseStockFile = catchAsyncError(async (req, res, next) => {
 });
 
 // Download stock update template
-export const downloadStockTemplate = catchAsyncError(async (req, res, next) => {
+export const downloadStockTemplate = catchAsyncErrors(async (req, res, next) => {
   const products = await Product.find({})
     .select("productName stockQuantity")
     .sort({ productName: 1 });
@@ -561,7 +561,7 @@ export const downloadStockTemplate = catchAsyncError(async (req, res, next) => {
 });
 
 // Execute bulk stock update
-export const executeStockUpdate = catchAsyncError(async (req, res, next) => {
+export const executeStockUpdate = catchAsyncErrors(async (req, res, next) => {
   const { updates } = req.body;
 
   if (!updates || !Array.isArray(updates) || updates.length === 0) {
@@ -597,7 +597,7 @@ export const executeStockUpdate = catchAsyncError(async (req, res, next) => {
 });
 
 // Manual bulk stock update (without file)
-export const manualStockUpdate = catchAsyncError(async (req, res, next) => {
+export const manualStockUpdate = catchAsyncErrors(async (req, res, next) => {
   const { productIds, updateType, stockValue } = req.body;
 
   if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {

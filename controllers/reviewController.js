@@ -1,4 +1,4 @@
-import { catchAsyncError } from "../middlewares/catchAsyncError.js";
+import { catchAsyncErrors } from "../middlewares/catchAsyncErrors.js";
 import ErrorHandler from "../middlewares/error.js";
 import { Review } from "../models/reviewSchema.js";
 import { Product } from "../models/productSchema.js";
@@ -7,7 +7,7 @@ import { Order } from "../models/orderSchema.js";
 // @desc    Create a new review
 // @route   POST /api/v1/review
 // @access  Private (Verified Buyers Only)
-export const createReview = catchAsyncError(async (req, res, next) => {
+export const createReview = catchAsyncErrors(async (req, res, next) => {
   const { productId, orderId, rating, title, comment } = req.body;
   const userId = req.user._id;
 
@@ -77,7 +77,7 @@ export const createReview = catchAsyncError(async (req, res, next) => {
 // @desc    Get reviews for a product
 // @route   GET /api/v1/review/product/:productId
 // @access  Public
-export const getProductReviews = catchAsyncError(async (req, res, next) => {
+export const getProductReviews = catchAsyncErrors(async (req, res, next) => {
   const { productId } = req.params;
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
@@ -125,7 +125,7 @@ export const getProductReviews = catchAsyncError(async (req, res, next) => {
 // @desc    Get user's reviews
 // @route   GET /api/v1/review/my-reviews
 // @access  Private
-export const getMyReviews = catchAsyncError(async (req, res, next) => {
+export const getMyReviews = catchAsyncErrors(async (req, res, next) => {
   const userId = req.user._id;
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
@@ -154,7 +154,7 @@ export const getMyReviews = catchAsyncError(async (req, res, next) => {
 // @desc    Update a review
 // @route   PUT /api/v1/review/:reviewId
 // @access  Private (Owner Only)
-export const updateReview = catchAsyncError(async (req, res, next) => {
+export const updateReview = catchAsyncErrors(async (req, res, next) => {
   const { reviewId } = req.params;
   const { rating, title, comment } = req.body;
   const userId = req.user._id;
@@ -195,7 +195,7 @@ export const updateReview = catchAsyncError(async (req, res, next) => {
 // @desc    Delete a review
 // @route   DELETE /api/v1/review/:reviewId
 // @access  Private (Owner or Admin)
-export const deleteReview = catchAsyncError(async (req, res, next) => {
+export const deleteReview = catchAsyncErrors(async (req, res, next) => {
   const { reviewId } = req.params;
   const userId = req.user._id;
   const userRole = req.user.role;
@@ -222,7 +222,7 @@ export const deleteReview = catchAsyncError(async (req, res, next) => {
 // @desc    Mark review as helpful
 // @route   POST /api/v1/review/:reviewId/helpful
 // @access  Private
-export const markReviewHelpful = catchAsyncError(async (req, res, next) => {
+export const markReviewHelpful = catchAsyncErrors(async (req, res, next) => {
   const { reviewId } = req.params;
   const userId = req.user._id;
 
@@ -260,7 +260,7 @@ export const markReviewHelpful = catchAsyncError(async (req, res, next) => {
 // @desc    Get average rating for a product
 // @route   GET /api/v1/review/rating/:productId
 // @access  Public
-export const getProductRating = catchAsyncError(async (req, res, next) => {
+export const getProductRating = catchAsyncErrors(async (req, res, next) => {
   const { productId } = req.params;
 
   const ratingStats = await Review.calculateAverageRating(productId);
@@ -276,7 +276,7 @@ export const getProductRating = catchAsyncError(async (req, res, next) => {
 // @desc    Get all reviews (Admin)
 // @route   GET /api/v1/review/admin/all
 // @access  Admin
-export const getAllReviewsAdmin = catchAsyncError(async (req, res, next) => {
+export const getAllReviewsAdmin = catchAsyncErrors(async (req, res, next) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
   const status = req.query.status; // pending, approved, rejected, spam
@@ -325,7 +325,7 @@ export const getAllReviewsAdmin = catchAsyncError(async (req, res, next) => {
 // @desc    Moderate a review (approve/reject/spam)
 // @route   PUT /api/v1/review/admin/:reviewId/moderate
 // @access  Admin
-export const moderateReview = catchAsyncError(async (req, res, next) => {
+export const moderateReview = catchAsyncErrors(async (req, res, next) => {
   const { reviewId } = req.params;
   const { status, moderationNote } = req.body;
   const adminId = req.user._id;
@@ -357,7 +357,7 @@ export const moderateReview = catchAsyncError(async (req, res, next) => {
 // @desc    Get review analytics (Admin)
 // @route   GET /api/v1/review/admin/analytics
 // @access  Admin
-export const getReviewAnalytics = catchAsyncError(async (req, res, next) => {
+export const getReviewAnalytics = catchAsyncErrors(async (req, res, next) => {
   // Overall stats
   const totalReviews = await Review.countDocuments();
   const approvedReviews = await Review.countDocuments({ status: "approved" });
@@ -471,7 +471,7 @@ export const getReviewAnalytics = catchAsyncError(async (req, res, next) => {
 // @desc    Check if user can review a product
 // @route   GET /api/v1/review/can-review/:productId
 // @access  Private
-export const canReviewProduct = catchAsyncError(async (req, res, next) => {
+export const canReviewProduct = catchAsyncErrors(async (req, res, next) => {
   const { productId } = req.params;
   const userId = req.user._id;
 
