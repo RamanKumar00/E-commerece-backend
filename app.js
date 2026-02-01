@@ -17,7 +17,12 @@ import analyticsRouter from "./routes/analyticsRouter.js";
 import paymentRouter from "./routes/paymentRouter.js";
 import flashDealRouter from "./routes/flashDealRouter.js";
 import productImportRouter from "./routes/productImportRouter.js";
+import reviewRouter from "./routes/reviewRouter.js";
+import invoiceRouter from "./routes/invoiceRouter.js";
+import bulkProductRouter from "./routes/bulkProductRouter.js";
+import courierRouter from "./routes/courierRouter.js";
 import { languageMiddleware } from "./middlewares/language.js";
+
 
 const app = express();
 // Only load config.env if MONGO_URI not already set (Render sets env vars directly)
@@ -58,6 +63,10 @@ app.use("/api/v1/analytics", analyticsRouter);
 app.use("/api/v1/payment", paymentRouter);
 app.use("/api/v1/flash-deal", flashDealRouter);
 app.use("/api/v1/product-ops", productImportRouter);
+app.use("/api/v1/review", reviewRouter);
+app.use("/api/v1/invoice", invoiceRouter);
+app.use("/api/v1/bulk", bulkProductRouter);
+app.use("/api/v1/courier", courierRouter);
 
 // Debug health check endpoint
 import mongoose from "mongoose";
