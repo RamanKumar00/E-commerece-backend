@@ -90,6 +90,65 @@ export const removeACategory = catchAsyncErrors(async (req, res, next) => {
   });
 });
 
+// Update an existing category (Admin)
+export const updateCategory = catchAsyncErrors(async (req, res, next) => {
+  const { categoryId } = req.params;
+  const { categoryName } = req.body;
+
+  if (!categoryId) {
+    return next(new ErrorHandler("Category ID is required", 400));
+  }
+
+  const category = await Category.findById(categoryId);
+  if (!category) {
+    return next(new ErrorHandler("Category not found", 404));
+  }
+
+  // Update name if provided
+  if (categoryName && categoryName !== category.categoryName) {
+    // Check if new name already exists
+    const existingCategory = await Category.findOne({ categoryName });
+    if (existingCategory && existingCategory._id.toString() !== categoryId) {
+      return next(new ErrorHandler(`Category '${categoryName}' already exists!`, 400));
+    }
+    category.categoryName = categoryName;
+  }
+
+  // Update image if provided
+  if (req.files && Object.keys(req.files).length > 0) {
+    const categoryImage = req.files.categoryImage || req.files.image || req.files.doc;
+    
+    const allowedFormats = ["image/png", "image/jpeg", "image/webp"];
+    if (!categoryImage || !categoryImage.mimetype || !allowedFormats.includes(categoryImage.mimetype)) {
+      return next(new ErrorHandler("File format not supported!", 400));
+    }
+
+    // Delete old image from Cloudinary
+    if (category.categoryImage && category.categoryImage.public_id) {
+      await cloudinary.uploader.destroy(category.categoryImage.public_id);
+    }
+
+    // Upload new image
+    const cloudinaryResponse = await cloudinary.uploader.upload(categoryImage.tempFilePath);
+    if (!cloudinaryResponse || cloudinaryResponse.error) {
+      return next(new ErrorHandler("Failed to upload image to Cloudinary", 500));
+    }
+
+    category.categoryImage = {
+      public_id: cloudinaryResponse.public_id,
+      url: cloudinaryResponse.secure_url,
+    };
+  }
+
+  await category.save();
+
+  res.status(200).json({
+    success: true,
+    message: `Category updated successfully`,
+    category,
+  });
+});
+
 export const getCategories = catchAsyncErrors(async (req, res, next) => {
   const categories = await Category.find();
 
