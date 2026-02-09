@@ -196,7 +196,7 @@ app.get("/privacy-policy", (req, res) => {
 
 // Root endpoint - Shows basic info for payment gateway verification
 app.get("/", (req, res) => {
-  res.send(\`
+  res.send(`
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -234,7 +234,7 @@ app.get("/", (req, res) => {
     </div>
 </body>
 </html>
-  \`);
+  `);
 });
 
 // Debug health check endpoint
